@@ -3,21 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>body.auth-pending { display: none !important; }</style>
   <script>
     (function(){
       const k = 'odin_auth';
       if (sessionStorage.getItem(k) === '1') return;
-      const h = '3e8c567677368442f927f843b3a82fb8c3455cda8ed0e3c66bd75a443c060b74'; // sha256 of od1n2026
-      async function check(p) {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
-        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      // Hide body until authenticated
+      document.addEventListener('DOMContentLoaded', () => document.body.classList.add('auth-pending'));
+
+      function unlock() {
+        sessionStorage.setItem(k, '1');
+        document.addEventListener('DOMContentLoaded', () => document.body.classList.remove('auth-pending'));
+        // If DOM already loaded
+        if (document.body) document.body.classList.remove('auth-pending');
       }
+      function block() {
+        document.documentElement.innerHTML = '<body style="background:#151719;"></body>';
+      }
+
+      if (!window.crypto || !window.crypto.subtle) {
+        const pw = prompt('Password:');
+        if (pw === 'od1n2026') { unlock(); } else { block(); }
+        return;
+      }
+      const h = '3e8c567677368442f927f843b3a82fb8c3455cda8ed0e3c66bd75a443c060b74';
       const pw = prompt('Password:');
-      if (!pw) { document.documentElement.innerHTML = ''; return; }
-      check(pw).then(hash => {
-        if (hash === h) { sessionStorage.setItem(k, '1'); }
-        else { alert('Wrong password'); document.documentElement.innerHTML = ''; }
-      });
+      if (!pw) { block(); return; }
+      (async () => {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+        const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+        if (hash === h) { unlock(); } else { alert('Wrong password'); block(); }
+      })();
     })();
   </script>
   <title>Odin Toolbar Prototype</title>
