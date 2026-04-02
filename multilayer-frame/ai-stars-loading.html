@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI-Stars — Loading v3 (Flutter + Pendulum Explorations)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f1117;
+    color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+    gap: 48px;
+  }
+  h1 {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+  }
+  h2 {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #334155;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 56px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .icon-wrap {
+    width: 96px;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(248, 250, 252, 0.03);
+    border: 1px solid rgba(248, 250, 252, 0.05);
+    border-radius: 20px;
+  }
+  .icon-wrap svg {
+    width: 40px;
+    height: 40px;
+    overflow: visible;
+  }
+  .label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #cbd5e1;
+    text-align: center;
+  }
+  .sublabel {
+    font-size: 11px;
+    color: #475569;
+    text-align: center;
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+
+  /* ============================================
+     F. PENDULUM (Reference)
+     Stars sway with a sine-like rhythm.
+     Subtle X-translation + scale accents.
+     ============================================ */
+  .anim-f .star-small {
+    transform-origin: 4px 4px;
+    animation: pendulum-s 2.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-f .star-large {
+    transform-origin: 10px 10px;
+    animation: pendulum-l 2.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes pendulum-s {
+    0%, 100% { transform: translateX(0) scale(1); opacity: 0.8; }
+    25%      { transform: translateX(-0.6px) scale(1.12); opacity: 1; }
+    50%      { transform: translateX(0) scale(0.88); opacity: 0.45; }
+    75%      { transform: translateX(0.6px) scale(1.08); opacity: 0.9; }
+  }
+  @keyframes pendulum-l {
+    0%, 100% { transform: translateX(0) scale(0.92); opacity: 0.55; }
+    25%      { transform: translateX(0.4px) scale(1.05); opacity: 0.85; }
+    50%      { transform: translateX(0) scale(1.1); opacity: 1; }
+    75%      { transform: translateX(-0.4px) scale(0.9); opacity: 0.5; }
+  }
+
+  /* ============================================
+     H. FLUTTER (Reference)
+     Rapid micro-scale oscillations + slow
+     opacity drift. Alive, delicate.
+     ============================================ */
+  .anim-h .star-small {
+    transform-origin: 4px 4px;
+    animation:
+      flutter-scale-s 0.6s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      flutter-drift-s 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-h .star-large {
+    transform-origin: 10px 10px;
+    animation:
+      flutter-scale-l 0.7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      flutter-drift-l 2.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes flutter-scale-s {
+    from { transform: scale(0.92) rotate(-2deg); }
+    to   { transform: scale(1.08) rotate(2deg); }
+  }
+  @keyframes flutter-scale-l {
+    from { transform: scale(1.05) rotate(1.5deg); }
+    to   { transform: scale(0.95) rotate(-1.5deg); }
+  }
+  @keyframes flutter-drift-s {
+    0%, 100% { opacity: 0.5; }
+    35%      { opacity: 1; }
+    70%      { opacity: 0.3; }
+  }
+  @keyframes flutter-drift-l {
+    0%, 100% { opacity: 0.8; }
+    20%      { opacity: 0.35; }
+    55%      { opacity: 1; }
+  }
+
+  /* ============================================
+     I. FIREFLY
+     Asymmetric flutter — each star has its own
+     oscillation speed (0.5s vs 0.85s). Combined
+     with a slow, dreamy Y-drift. Stars feel
+     independent, like fireflies drifting in the
+     dark. More alive than Flutter.
+     ============================================ */
+  .anim-i .star-small {
+    transform-origin: 4px 4px;
+    animation:
+      firefly-s 0.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      firefly-drift-s 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-i .star-large {
+    transform-origin: 10px 10px;
+    animation:
+      firefly-l 0.85s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      firefly-drift-l 3.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes firefly-s {
+    from { transform: scale(0.88) rotate(-3deg); }
+    to   { transform: scale(1.12) rotate(3deg); }
+  }
+  @keyframes firefly-l {
+    from { transform: scale(1.06) rotate(2deg); }
+    to   { transform: scale(0.94) rotate(-2deg); }
+  }
+  @keyframes firefly-drift-s {
+    0%, 100% { opacity: 0.35; filter: brightness(0.7); }
+    30%      { opacity: 1; filter: brightness(1.2); }
+    60%      { opacity: 0.2; filter: brightness(0.6); }
+    80%      { opacity: 0.85; filter: brightness(1); }
+  }
+  @keyframes firefly-drift-l {
+    0%, 100% { opacity: 0.7; filter: brightness(0.9); }
+    15%      { opacity: 0.25; filter: brightness(0.6); }
+    45%      { opacity: 1; filter: brightness(1.2); }
+    75%      { opacity: 0.5; filter: brightness(0.8); }
+  }
+
+  /* ============================================
+     J. LEAF
+     Slower, gentler flutter (1.1s) with rotation
+     dominant over scale. Like a leaf rocking in
+     a gentle breeze. Rotation ±6deg creates more
+     visible movement at small sizes. Peaceful.
+     ============================================ */
+  .anim-j .star-small {
+    transform-origin: 4px 4px;
+    animation:
+      leaf-rock-s 1.1s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      leaf-fade-s 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-j .star-large {
+    transform-origin: 10px 10px;
+    animation:
+      leaf-rock-l 1.3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      leaf-fade-l 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes leaf-rock-s {
+    from { transform: rotate(-6deg) scale(0.95); }
+    to   { transform: rotate(6deg) scale(1.05); }
+  }
+  @keyframes leaf-rock-l {
+    from { transform: rotate(5deg) scale(1.03); }
+    to   { transform: rotate(-5deg) scale(0.97); }
+  }
+  @keyframes leaf-fade-s {
+    0%, 100% { opacity: 0.6; }
+    40%      { opacity: 1; }
+    70%      { opacity: 0.35; }
+  }
+  @keyframes leaf-fade-l {
+    0%, 100% { opacity: 0.85; }
+    25%      { opacity: 0.4; }
+    60%      { opacity: 1; }
+  }
+
+  /* ============================================
+     K. LISSAJOUS
+     Pendulum with X + Y translation creating
+     figure-8 / Lissajous paths. Stars trace
+     tiny elliptical orbits in counter-directions.
+     Fluid, hypnotic, mathematical beauty.
+     ============================================ */
+  .anim-k .star-small {
+    transform-origin: 4px 4px;
+    animation: liss-s 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-k .star-large {
+    transform-origin: 10px 10px;
+    animation: liss-l 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes liss-s {
+    0%       { transform: translate(0, 0) scale(1); opacity: 0.7; }
+    25%      { transform: translate(-0.6px, -0.4px) scale(1.1); opacity: 1; }
+    50%      { transform: translate(0, 0.3px) scale(0.9); opacity: 0.5; }
+    75%      { transform: translate(0.6px, -0.4px) scale(1.08); opacity: 0.95; }
+    100%     { transform: translate(0, 0) scale(1); opacity: 0.7; }
+  }
+  @keyframes liss-l {
+    0%       { transform: translate(0, 0) scale(0.95); opacity: 0.6; }
+    25%      { transform: translate(0.5px, 0.3px) scale(1.05); opacity: 0.9; }
+    50%      { transform: translate(0, -0.2px) scale(1.1); opacity: 1; }
+    75%      { transform: translate(-0.5px, 0.3px) scale(0.92); opacity: 0.45; }
+    100%     { transform: translate(0, 0) scale(0.95); opacity: 0.6; }
+  }
+
+  /* ============================================
+     L. HEARTBEAT
+     Pendulum rhythm but with a sharp systolic
+     "pump" — fast scale-up, soft settle-down.
+     Like a heartbeat: quick thump then slow ease.
+     Both stars pulse in sequence. Urgency+calm.
+     ============================================ */
+  .anim-l .star-small {
+    transform-origin: 4px 4px;
+    animation: heartbeat-s 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-l .star-large {
+    transform-origin: 10px 10px;
+    animation: heartbeat-l 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes heartbeat-s {
+    0%, 100% { transform: scale(0.9); opacity: 0.45; }
+    8%       { transform: scale(1.18); opacity: 1; }
+    16%      { transform: scale(0.95); opacity: 0.7; }
+    24%      { transform: scale(1.1); opacity: 0.9; }
+    40%      { transform: scale(0.92); opacity: 0.5; }
+    70%      { transform: scale(0.88); opacity: 0.35; }
+  }
+  @keyframes heartbeat-l {
+    0%, 100% { transform: scale(0.92); opacity: 0.4; }
+    4%       { transform: scale(0.92); opacity: 0.4; }
+    12%      { transform: scale(1.15); opacity: 1; }
+    20%      { transform: scale(0.97); opacity: 0.75; }
+    28%      { transform: scale(1.08); opacity: 0.85; }
+    44%      { transform: scale(0.93); opacity: 0.5; }
+    72%      { transform: scale(0.9); opacity: 0.35; }
+  }
+
+  /* ============================================
+     M. SHIMMER
+     Best of both: fast flutter micro-oscillation
+     layered on top of slow pendulum drift.
+     Stars flicker rapidly while gently swaying.
+     Like heat shimmer over asphalt. Rich, alive.
+     ============================================ */
+  .anim-m .star-small {
+    transform-origin: 4px 4px;
+    animation:
+      shimmer-fast-s 0.55s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      shimmer-slow-s 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-m .star-large {
+    transform-origin: 10px 10px;
+    animation:
+      shimmer-fast-l 0.65s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite alternate,
+      shimmer-slow-l 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes shimmer-fast-s {
+    from { transform: scale(0.93) translateX(-0.3px); }
+    to   { transform: scale(1.07) translateX(0.3px); }
+  }
+  @keyframes shimmer-fast-l {
+    from { transform: scale(1.04) translateX(0.2px); }
+    to   { transform: scale(0.96) translateX(-0.2px); }
+  }
+  @keyframes shimmer-slow-s {
+    0%, 100% { opacity: 0.55; }
+    20%      { opacity: 0.9; }
+    45%      { opacity: 0.3; }
+    70%      { opacity: 1; }
+    90%      { opacity: 0.5; }
+  }
+  @keyframes shimmer-slow-l {
+    0%, 100% { opacity: 0.75; }
+    15%      { opacity: 0.35; }
+    40%      { opacity: 1; }
+    65%      { opacity: 0.45; }
+    85%      { opacity: 0.9; }
+  }
+
+  /* ============================================
+     N. METRONOME
+     Pendulum's rhythm expressed as rotation
+     instead of translation. Stars rock back
+     and forth in opposing phases — when one
+     tilts left, the other tilts right.
+     Steady, musical, conductor's baton.
+     ============================================ */
+  .anim-n .star-small {
+    transform-origin: 4px 4px;
+    animation: metro-s 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  .anim-n .star-large {
+    transform-origin: 10px 10px;
+    animation: metro-l 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  @keyframes metro-s {
+    0%, 100% { transform: rotate(0deg) scale(1); opacity: 0.7; }
+    25%      { transform: rotate(-8deg) scale(1.1); opacity: 1; }
+    50%      { transform: rotate(0deg) scale(0.92); opacity: 0.5; }
+    75%      { transform: rotate(8deg) scale(1.06); opacity: 0.9; }
+  }
+  @keyframes metro-l {
+    0%, 100% { transform: rotate(0deg) scale(0.95); opacity: 0.55; }
+    25%      { transform: rotate(6deg) scale(1.04); opacity: 0.85; }
+    50%      { transform: rotate(0deg) scale(1.08); opacity: 1; }
+    75%      { transform: rotate(-6deg) scale(0.93); opacity: 0.5; }
+  }
+</style>
+</head>
+<body>
+
+<h1>AI-Stars — Loading v3</h1>
+<h2>Flutter + Pendulum Explorations</h2>
+
+<!-- Reference row: F + H -->
+<div class="grid" style="grid-template-columns: repeat(2, 1fr); gap: 80px; margin-top: 8px;">
+
+  <!-- F (Reference) -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-f" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">F. Pendulum (Ref)</div>
+      <div class="sublabel">Sinus-Sway + Scale<br>Musikalisch, hypnotisch</div>
+    </div>
+  </div>
+
+  <!-- H (Reference) -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-h" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">H. Flutter (Ref)</div>
+      <div class="sublabel">Schnelle Mikro-Oszillation<br>Langsamer Opacity-Drift</div>
+    </div>
+  </div>
+
+</div>
+
+<hr style="width:100%;max-width:800px;border:none;border-top:1px solid rgba(248,250,252,0.06);margin:8px 0;">
+<h2>Neue Varianten</h2>
+
+<!-- New explorations -->
+<div class="grid" style="grid-template-columns: repeat(3, 1fr); gap: 56px;">
+
+  <!-- I. Firefly -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-i" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">I. Firefly</div>
+      <div class="sublabel">Asymmetrische Flutter-Speeds<br>0.5s vs 0.85s, Brightness-Drift</div>
+    </div>
+  </div>
+
+  <!-- J. Leaf -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-j" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">J. Leaf</div>
+      <div class="sublabel">Sanftes Wiegen, ±6° Rotation<br>Langsamer, wie Blatt im Wind</div>
+    </div>
+  </div>
+
+  <!-- K. Lissajous -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-k" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">K. Lissajous</div>
+      <div class="sublabel">X+Y Ellipsen-Pfade<br>Gegenl&auml;ufig, mathematisch sch&ouml;n</div>
+    </div>
+  </div>
+
+  <!-- L. Heartbeat -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-l" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">L. Heartbeat</div>
+      <div class="sublabel">Schneller Pump, langsames Settle<br>Doppelschlag wie Herzschlag</div>
+    </div>
+  </div>
+
+  <!-- M. Shimmer -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-m" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">M. Shimmer</div>
+      <div class="sublabel">Flutter + Pendulum-Drift<br>Schnell flackern, langsam schweben</div>
+    </div>
+  </div>
+
+  <!-- N. Metronome -->
+  <div class="card">
+    <div class="icon-wrap">
+      <svg class="anim-n" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+        <g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g>
+      </svg>
+    </div>
+    <div>
+      <div class="label">N. Metronome</div>
+      <div class="sublabel">Pendulum als Rotation<br>Gegenl&auml;ufig ±8°, Dirigentenstab</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- In-context preview at 16px -->
+<div style="margin-top: 40px; display: flex; flex-direction: column; align-items: center; gap: 20px;">
+  <div class="sublabel">In-context @ 16px</div>
+  <div style="display: flex; gap: 24px; align-items: center;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-f" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">F</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-h" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">H</div>
+    </div>
+    <div style="width:1px;height:16px;background:rgba(248,250,252,0.08);"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-i" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">I</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-j" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">J</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-k" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">K</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-l" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">L</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-m" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">M</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+      <div style="background:rgba(248,250,252,0.07);border:1px solid rgba(248,250,252,0.03);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;"><svg class="anim-n" width="16" height="16" viewBox="0 0 16 16" fill="none"><g class="star-small"><path d="M3.44854 2.2048L3.8424 1.24826C3.86874 1.18432 3.93106 1.14258 4.00021 1.14258C4.06936 1.14258 4.13168 1.18432 4.158 1.24826L4.55188 2.2048C4.78396 2.76841 5.23152 3.21597 5.79514 3.44805L6.75167 3.84193C6.81562 3.86825 6.85735 3.93057 6.85735 3.99972C6.85735 4.06888 6.81562 4.1312 6.75167 4.15753L5.79514 4.55139C5.23152 4.78347 4.78396 5.23104 4.55188 5.79465L4.158 6.75118C4.13168 6.81513 4.06936 6.85686 4.00021 6.85686C3.93106 6.85686 3.86874 6.81513 3.8424 6.75118L3.44854 5.79465C3.21646 5.23104 2.7689 4.78347 2.20528 4.55139L1.24875 4.15753C1.1848 4.1312 1.14307 4.06888 1.14307 3.99972C1.14307 3.93057 1.1848 3.86825 1.24875 3.84193L2.20528 3.44805C2.7689 3.21597 3.21646 2.76841 3.44854 2.2048Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g><g class="star-large"><path d="M8.80854 7.5648L9.73195 5.32224C9.77671 5.21353 9.88264 5.14258 10.0002 5.14258C10.1178 5.14258 10.2237 5.21353 10.2685 5.32224L11.1919 7.5648C11.4239 8.12841 11.8715 8.57598 12.4352 8.80805L14.6777 9.73146C14.7864 9.77622 14.8574 9.88216 14.8574 9.99972C14.8574 10.1173 14.7864 10.2232 14.6777 10.268L12.4352 11.1914C11.8715 11.4235 11.4239 11.871 11.1919 12.4347L10.2685 14.6772C10.2237 14.7859 10.1178 14.8569 10.0002 14.8569C9.88264 14.8569 9.77671 14.7859 9.73195 14.6772L8.80854 12.4347C8.57646 11.871 8.1289 11.4235 7.56527 11.1914L5.32272 10.268C5.21401 10.2232 5.14307 10.1173 5.14307 9.99972C5.14307 9.88216 5.21401 9.77622 5.32272 9.73146L7.56527 8.80805C8.1289 8.57598 8.57646 8.12841 8.80854 7.5648Z" stroke="#F8FAFC" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+      <div style="font-size:9px;color:#475569;">N</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
