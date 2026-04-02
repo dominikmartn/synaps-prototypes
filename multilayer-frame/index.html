@@ -3,6 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    (function(){
+      const k = 'odin_auth';
+      if (sessionStorage.getItem(k) === '1') return;
+      const h = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // sha256 of od1n2026
+      async function check(p) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
+        return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+      }
+      const pw = prompt('Password:');
+      if (!pw) { document.documentElement.innerHTML = ''; return; }
+      check(pw).then(hash => {
+        if (hash === h) { sessionStorage.setItem(k, '1'); }
+        else { alert('Wrong password'); document.documentElement.innerHTML = ''; }
+      });
+    })();
+  </script>
   <title>Odin Toolbar Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1104,25 +1121,26 @@
     .canvas-frame.selected .frame-convert-btn { display: flex; }
     .canvas-frame.multilayer .frame-convert-btn { display: none; }
 
-    /* ─── Floor Navigation (Notion-style, windowed, left of frame) ─── */
+    /* ─── Floor Navigation (fixed overlay, tracks frame position) ─── */
     .floor-nav {
-      position: absolute;
+      position: fixed;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       justify-content: center;
-      z-index: 60;
+      z-index: 85;
       opacity: 0;
       transition: opacity 0.25s;
       pointer-events: none;
     }
-    .floor-nav.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
-    .floor-nav.visible.active { cursor: default; }
+    .floor-nav.visible { opacity: 1; pointer-events: none; cursor: pointer; }
+    .floor-nav.visible.active { pointer-events: auto; cursor: default; }
+    .floor-nav.visible:not(.active) { pointer-events: auto; } /* clickable to select frame */
     /* Dimmed state: hide labels, active highlight becomes gray, items not interactive */
     .floor-nav.visible:not(.active) .floor-nav-label { opacity: 0 !important; }
     .floor-nav.visible:not(.active) .floor-nav-item.active .floor-nav-line { background: var(--border--strong) !important; }
     .floor-nav.visible:not(.active) .floor-nav-item { pointer-events: none; }
-    .floor-nav.visible:not(.active) .floor-nav-go { visibility: hidden; }
+    .floor-nav.visible:not(.active) .floor-nav-counter { display: none; }
 
     .floor-nav-viewport {
       overflow: hidden;
@@ -1176,52 +1194,42 @@
     .floor-nav-item:hover .floor-nav-line { width: 22px; background: var(--border--strong); }
     .floor-nav-item.active .floor-nav-line { width: 22px; background: var(--accent--canvas--crosshair); height: 3px; }
 
-    /* Floor nav input — integrated as inline pill */
-    .floor-nav-go {
+    /* Floor counter — "3 / 25" below nav, clickable → input */
+    .floor-nav-counter {
       display: flex;
       align-items: center;
-      gap: 0;
+      justify-content: flex-end;
       margin-top: 6px;
-      cursor: pointer;
-      position: relative;
-    }
-    .floor-nav-go-input {
-      width: 0;
-      height: 18px;
-      padding: 0;
-      background: transparent;
-      border: none;
-      color: #F8FAFC;
       font-size: 10px;
       font-weight: 500;
+      color: var(--content--secondary);
       font-family: 'Inter', sans-serif;
-      text-align: right;
-      outline: none;
-      transition: width 0.15s, padding 0.15s, background 0.15s, border 0.15s;
-      border-radius: 3px;
-      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: color 0.12s;
+      padding: 2px 4px;
+      border-radius: var(--radius--control);
     }
-    .floor-nav-go.open .floor-nav-go-input {
-      width: 28px;
+    .floor-nav-counter:hover { color: var(--content--primary); background: var(--surface--controls--button-hover); }
+    .floor-nav-counter .counter-current { color: var(--content--primary); }
+    .floor-nav-counter .counter-sep { margin: 0 2px; color: var(--content--muted); }
+
+    .floor-nav-counter-input {
+      width: 40px;
+      height: 20px;
       padding: 0 4px;
       background: var(--surface--controls--input-default);
       border: 1px solid var(--border--focus);
-    }
-    .floor-nav-go-trigger {
-      width: 12px;
-      height: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--content--disabled);
-      transition: color 0.12s;
+      border-radius: var(--radius--control);
+      color: var(--content--primary);
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 500;
       font-family: 'Inter', sans-serif;
-      user-select: none;
+      text-align: center;
+      outline: none;
     }
-    .floor-nav-go:hover .floor-nav-go-trigger { color: var(--content--secondary); }
-    .floor-nav-go.open .floor-nav-go-trigger { display: none; }
+
 
     /* ─── PDF Frame ─── */
     .canvas-frame.pdf-frame {
@@ -1231,13 +1239,14 @@
       left: 280px;
     }
 
-    /* ─── Page Navigation (outside PDF frame, centered below) ─── */
+    /* ─── Page Navigation (fixed overlay, tracks PDF frame position) ─── */
     .page-nav {
-      position: absolute;
+      position: fixed;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 6px;
-      z-index: 60;
+      gap: 4px;
+      z-index: 85;
       opacity: 0;
       transition: opacity 0.25s;
       pointer-events: none;
@@ -1247,6 +1256,12 @@
     .page-nav.visible:not(.active) .page-nav-label { opacity: 0; }
     .page-nav.visible:not(.active) .page-nav-dot.active { background: var(--border--strong); }
     .page-nav.visible:not(.active) .page-nav-arrow { opacity: 0; pointer-events: none; }
+
+    .page-nav-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
     .page-nav-arrow {
       width: 24px;
@@ -1279,8 +1294,6 @@
       font-weight: 500;
       color: var(--content--secondary);
       font-family: 'Inter', sans-serif;
-      margin: 0 2px;
-      min-width: 24px;
       text-align: center;
       white-space: nowrap;
       transition: opacity 0.2s;
@@ -2158,6 +2171,29 @@
     <span class="mode-instruction-esc">esc</span>
   </div>
 
+  <!-- Floor Navigation (fixed overlay) -->
+  <div class="floor-nav" id="floorNav">
+    <div class="floor-nav-viewport" id="floorNavViewport">
+      <div class="floor-nav-track" id="floorNavTrack"></div>
+    </div>
+  </div>
+
+  <!-- Page Navigation (fixed overlay) -->
+  <div class="page-nav visible" id="pageNav">
+    <div class="page-nav-row">
+      <div class="page-nav-arrow" id="pdfPagePrev" title="Previous Page">
+        <svg viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="page-nav-dot active"></div>
+      <div class="page-nav-dot"></div>
+      <div class="page-nav-dot"></div>
+      <div class="page-nav-arrow" id="pdfPageNext" title="Next Page">
+        <svg viewBox="0 0 10 10" fill="none"><path d="M3.5 1.5L7 5l-3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <span class="page-nav-label">1 / 3</span>
+  </div>
+
   <!-- Secondary Toolbar (icon-only ActionButtons, repo SecondaryToolbar pattern) -->
   <div class="secondary-toolbar" id="secondaryToolbar">
     <div class="sec-tb-btn" id="secAddFloor" title="Add Floor">
@@ -2210,17 +2246,6 @@
   </div>
 
   <div class="canvas" id="canvasEl">
-    <!-- Floor Navigation (Notion-style, windowed, left of frame) -->
-    <div class="floor-nav" id="floorNav">
-      <div class="floor-nav-viewport" id="floorNavViewport">
-        <div class="floor-nav-track" id="floorNavTrack"></div>
-      </div>
-      <div class="floor-nav-go" id="floorNavGo">
-        <input class="floor-nav-go-input" id="floorNavInput" type="text" maxlength="4">
-        <div class="floor-nav-go-trigger">#</div>
-      </div>
-    </div>
-
     <!-- Frame on canvas -->
     <div class="canvas-frame" id="canvasFrame">
       <div class="frame-hover-zone"></div>
@@ -2476,19 +2501,6 @@
       </svg>
     </div>
 
-    <!-- Page Navigation (outside PDF frame, centered below) -->
-    <div class="page-nav visible" id="pageNav">
-      <div class="page-nav-arrow" id="pdfPagePrev" title="Previous Page">
-        <svg viewBox="0 0 10 10" fill="none"><path d="M6.5 1.5L3 5l3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-      <div class="page-nav-dot active"></div>
-      <div class="page-nav-dot"></div>
-      <div class="page-nav-dot"></div>
-      <span class="page-nav-label">1 / 3</span>
-      <div class="page-nav-arrow" id="pdfPageNext" title="Next Page">
-        <svg viewBox="0 0 10 10" fill="none"><path d="M3.5 1.5L7 5l-3.5 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
-    </div>
 
     <svg id="polylineSVG" xmlns="http://www.w3.org/2000/svg">
       <g id="plCompleted"></g>
@@ -4650,12 +4662,31 @@ Try rephrasing your question or search for a tool in the command bar.`;
     }
 
     let floorNavOwner = null; // 'main' or 'tower' — which frame the nav is attached to
+    let floorNavFrame = null; // DOM element the floor nav tracks
 
     function positionFloorNav(frameEl) {
-      floorNav.style.top = frameEl.offsetTop + 'px';
-      floorNav.style.height = frameEl.offsetHeight + 'px';
-      floorNav.style.left = (frameEl.offsetLeft - 50) + 'px';
+      floorNavFrame = frameEl;
       floorNavOwner = frameEl === towerFrame ? 'tower' : 'main';
+      updateOverlayPositions();
+    }
+
+    function updateOverlayPositions() {
+      // Floor nav — left of its frame, vertically centered on frame midpoint
+      if (floorNavFrame && floorNav.classList.contains('visible')) {
+        const r = floorNavFrame.getBoundingClientRect();
+        const navH = floorNav.offsetHeight;
+        floorNav.style.left = (r.left - 50) + 'px';
+        floorNav.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
+        floorNav.style.height = '';
+      }
+      // Page nav — centered below PDF frame (pageNav defined later, guard against undefined)
+      const pn = document.getElementById('pageNav');
+      if (pn && pn.classList.contains('visible')) {
+        const r = pdfFrame.getBoundingClientRect();
+        const navW = pn.offsetWidth;
+        pn.style.left = (r.left + r.width / 2 - navW / 2) + 'px';
+        pn.style.top = (r.bottom + 8) + 'px';
+      }
     }
 
     function selectPdfFrame() {
@@ -4762,74 +4793,51 @@ Try rephrasing your question or search for a tool in the command bar.`;
     });
 
     // Hover on multilayer frame → activate floor nav
+    let hoverNavFrame = null; // which frame is being hovered (not selected)
+
     function handleFrameHover(frameKey, frameEl) {
       frameEl.addEventListener('mouseenter', () => {
-        if (selectedFrame === frameKey) return; // already selected, nav is already active
-        const fd = frameData[frameKey];
-        if (!fd.isMultilayer) return;
-        // Temporarily load this frame's data to show its nav
-        loadFrameData(frameKey);
-        positionFloorNav(frameEl);
-        buildFloorDom();
+        if (selectedFrame === frameKey) return;
+        if (!frameData[frameKey].isMultilayer) return;
+        hoverNavFrame = frameKey;
+        // Only switch nav if it's not already showing this frame
+        if (floorNavOwner !== frameKey) {
+          loadFrameData(frameKey);
+          positionFloorNav(frameEl);
+          buildFloorDom();
+        }
         floorNav.classList.add('visible', 'active');
       });
       frameEl.addEventListener('mouseleave', () => {
-        if (selectedFrame === frameKey) return; // stay active when selected
-        if (selectedFrame && (selectedFrame === 'main' || selectedFrame === 'tower')) {
-          // Another frame is selected — restore its nav
-          const selEl = selectedFrame === 'tower' ? towerFrame : canvasFrame;
-          loadFrameData(selectedFrame);
-          positionFloorNav(selEl);
-          buildFloorDom();
-          floorNav.classList.add('visible', 'active');
-        } else {
-          // No frame selected — dim the nav back
+        if (selectedFrame === frameKey) return;
+        hoverNavFrame = null;
+        // Small delay to allow moving to floor nav without flicker
+        setTimeout(() => {
+          if (hoverNavFrame) return; // moved to another frame
+          if (selectedFrame === 'main' || selectedFrame === 'tower') return; // a frame got selected
           floorNav.classList.remove('active');
-          // Restore nav to the last multilayer frame
-          if (frameData.tower.isMultilayer) {
-            loadFrameData('tower');
-            positionFloorNav(towerFrame);
-            buildFloorDom();
-            floorNav.classList.add('visible');
-            currentFrameKey = null;
-          }
-        }
+        }, 50);
       });
     }
 
     handleFrameHover('main', canvasFrame);
     handleFrameHover('tower', towerFrame);
 
-    // Floor nav hover should also keep the frame's hover state active
+    // Floor nav hover keeps it active
     floorNav.addEventListener('mouseenter', () => {
-      if (floorNav.classList.contains('active') && !selectedFrame) {
-        // Nav is active from a frame hover — keep it active
-      } else if (!floorNav.classList.contains('active') && floorNavOwner) {
-        // Dimmed nav — activate on hover
+      if (!floorNav.classList.contains('active') && floorNavOwner) {
+        // Dimmed nav clicked/hovered — activate
+        floorNav.classList.add('active');
         const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
-        const fd = frameData[floorNavOwner];
-        if (!fd.isMultilayer) return;
-        loadFrameData(floorNavOwner);
-        positionFloorNav(frameEl);
-        buildFloorDom();
-        floorNav.classList.add('visible', 'active');
-        // Also trigger the frame hover style
         frameEl.classList.add('nav-hover');
       }
     });
     floorNav.addEventListener('mouseleave', () => {
-      if (selectedFrame === floorNavOwner) return; // frame is selected, stay active
+      if (selectedFrame === floorNavOwner) return;
       const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
       frameEl.classList.remove('nav-hover');
-      if (!selectedFrame || (selectedFrame !== 'main' && selectedFrame !== 'tower')) {
+      if (!hoverNavFrame) {
         floorNav.classList.remove('active');
-        if (frameData.tower.isMultilayer) {
-          loadFrameData('tower');
-          positionFloorNav(towerFrame);
-          buildFloorDom();
-          floorNav.classList.add('visible');
-          currentFrameKey = null;
-        }
       }
     });
 
@@ -4902,8 +4910,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
     // ── Floor Navigation (windowed) ──
     const floorNavTrack = document.getElementById('floorNavTrack');
     const floorNavViewport = document.getElementById('floorNavViewport');
-    const floorNavInput = document.getElementById('floorNavInput');
-    const floorNavGo = document.getElementById('floorNavGo');
 
     const ITEM_H = 14;     // px per floor item (matches CSS height)
     const MAX_VIS = 14;
@@ -4913,6 +4919,11 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function buildFloorDom() {
       floorNavTrack.innerHTML = '';
       floorEls = [];
+
+      // Remove old counter if exists
+      const oldCounter = floorNav.querySelector('.floor-nav-counter');
+      if (oldCounter) oldCounter.remove();
+
       // High floor at top, low at bottom
       const sorted = FLOORS.slice().sort((a, b) => b.id - a.id);
       sorted.forEach(floor => {
@@ -4933,7 +4944,63 @@ Try rephrasing your question or search for a tool in the command bar.`;
         floorNavTrack.appendChild(item);
         floorEls.push({ id: floor.id, item, line });
       });
+
+      // Add counter below nav (only if >7 floors)
+      if (FLOORS.length > 7) {
+        const counter = document.createElement('div');
+        counter.className = 'floor-nav-counter';
+        counter.id = 'floorNavCounter';
+        floorNav.appendChild(counter);
+
+        counter.addEventListener('mousedown', (e) => e.stopPropagation());
+        counter.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Replace counter text with input
+          const currentIdx = FLOORS.findIndex(f => f.id === activeFloor) + 1;
+          counter.innerHTML = '';
+          const inp = document.createElement('input');
+          inp.className = 'floor-nav-counter-input';
+          inp.type = 'text';
+          inp.maxLength = 4;
+          inp.placeholder = currentIdx.toString();
+          counter.appendChild(inp);
+          inp.focus();
+
+          inp.addEventListener('mousedown', (ev) => ev.stopPropagation());
+          inp.addEventListener('keydown', (ev) => {
+            ev.stopPropagation();
+            if (ev.key === 'Enter') {
+              const num = parseInt(inp.value.trim());
+              if (!isNaN(num)) {
+                let floor = FLOORS.find(f => f.id === num);
+                if (!floor) {
+                  const ln = floorLabelForId(num);
+                  floor = { id: num, label: ln.label, name: ln.name };
+                  FLOORS.push(floor);
+                  FLOORS.sort((a, b) => a.id - b.id);
+                  FLOOR_HEIGHTS[num] = '2.80';
+                  buildFloorDom();
+                }
+                setActiveFloor(num);
+              } else {
+                updateFloorCounter();
+              }
+            }
+            if (ev.key === 'Escape') updateFloorCounter();
+          });
+          inp.addEventListener('blur', () => setTimeout(updateFloorCounter, 100));
+        });
+      }
+
       applyFloorNav();
+    }
+
+    function updateFloorCounter() {
+      const counter = document.getElementById('floorNavCounter');
+      if (!counter) return;
+      const sortedIds = FLOORS.map(f => f.id).sort((a, b) => a - b);
+      const currentIdx = sortedIds.indexOf(activeFloor) + 1;
+      counter.innerHTML = `<span class="counter-current">${currentIdx}</span><span class="counter-sep">/</span>${FLOORS.length}`;
     }
 
     function applyFloorNav() {
@@ -4987,6 +5054,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
         el.line.style.opacity = (0.2 + 0.8 * scale).toFixed(2);
         el.line.style.background = '';
       });
+      updateFloorCounter();
     }
 
     function setActiveFloor(floorId) {
@@ -5032,49 +5100,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
       else selectMainFrame();
     });
 
-    // ── Floor Nav Go-To Input ──
-    floorNavGo.addEventListener('click', (e) => {
-      e.stopPropagation();
-      floorNavGo.classList.add('open');
-      floorNavInput.focus();
-    });
-
-    floorNavInput.addEventListener('keydown', (e) => {
-      e.stopPropagation();
-      if (e.key === 'Enter') {
-        const num = parseInt(floorNavInput.value.trim());
-        if (isNaN(num)) { closeFloorInput(); return; }
-
-        let floor = FLOORS.find(f => f.id === num);
-        if (!floor) {
-          const label = num < 0 ? `B${Math.abs(num)}` : num === 0 ? 'GF' : `F${num}`;
-          const name = num < 0 ? `Basement ${Math.abs(num)}` : num === 0 ? 'Ground Floor' : `Floor ${num}`;
-          floor = { id: num, label, name };
-          FLOORS.push(floor);
-          buildFloorDom();
-        }
-        setActiveFloor(num);
-        closeFloorInput();
-      }
-      if (e.key === 'Escape') closeFloorInput();
-    });
-
-    floorNavInput.addEventListener('blur', () => {
-      setTimeout(closeFloorInput, 150);
-    });
-
-    floorNavInput.addEventListener('click', (e) => e.stopPropagation());
-    floorNavInput.addEventListener('mousedown', (e) => e.stopPropagation());
-
-    function closeFloorInput() {
-      floorNavInput.value = '';
-      floorNavGo.classList.remove('open');
-      floorNavInput.blur();
-      // Reset pan state in case it got stuck
-      spaceHeld = false;
-      isPanning = false;
-      document.body.classList.remove('space-held', 'space-panning');
-    }
 
     // ── Secondary Toolbar Tooltips ──
     document.querySelectorAll('.secondary-toolbar .sec-tb-btn, .secondary-toolbar-pdf .sec-tb-btn').forEach(btn => {
@@ -5265,13 +5290,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
     const pdfTotalPages = 3;
 
     function positionPageNav() {
-      const left = pdfFrame.offsetLeft;
-      const top = pdfFrame.offsetTop + pdfFrame.offsetHeight + 8;
-      const width = pdfFrame.offsetWidth;
-      pageNav.style.left = left + 'px';
-      pageNav.style.top = top + 'px';
-      pageNav.style.width = width + 'px';
-      pageNav.style.justifyContent = 'center';
+      updateOverlayPositions();
     }
 
     function setPdfPage(idx) {
@@ -6197,6 +6216,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function applyCanvas() {
       canvasEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
       applyCounterZoom();
+      updateOverlayPositions();
     }
 
     function applyCounterZoom() {
@@ -6222,19 +6242,14 @@ Try rephrasing your question or search for a tool in the command bar.`;
       document.documentElement.style.setProperty('--handle-border', borderW + 'px');
       document.documentElement.style.setProperty('--frame-border', Math.max(1, 2 * s) + 'px');
 
-      // Floor nav + page nav — hide when zoomed out too far
-      floorNav.style.transform = '';
-      pageNav.style.transform = '';
-      if (zoom < 0.45) {
-        floorNav.style.opacity = '0';
-        floorNav.style.pointerEvents = 'none';
-        pageNav.style.opacity = '0';
-        pageNav.style.pointerEvents = 'none';
+      // Floor nav + page nav are fixed overlays — hide when zoomed out very far
+      const pn = document.getElementById('pageNav');
+      if (zoom < 0.5) {
+        floorNav.style.visibility = 'hidden';
+        if (pn) pn.style.visibility = 'hidden';
       } else {
-        floorNav.style.opacity = '';
-        floorNav.style.pointerEvents = '';
-        pageNav.style.opacity = '';
-        pageNav.style.pointerEvents = '';
+        floorNav.style.visibility = '';
+        if (pn) pn.style.visibility = '';
       }
 
       // Generated frame labels
