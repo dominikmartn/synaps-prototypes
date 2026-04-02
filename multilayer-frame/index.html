@@ -3,39 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>body.auth-pending { display: none !important; }</style>
+  <!-- AUTH:START -->
+  <style id="authGate">body{visibility:hidden !important;height:0 !important;overflow:hidden !important;}</style>
   <script>
     (function(){
-      const k = 'odin_auth';
-      if (sessionStorage.getItem(k) === '1') return;
-      // Hide body until authenticated
-      document.addEventListener('DOMContentLoaded', () => document.body.classList.add('auth-pending'));
-
-      function unlock() {
-        sessionStorage.setItem(k, '1');
-        document.addEventListener('DOMContentLoaded', () => document.body.classList.remove('auth-pending'));
-        // If DOM already loaded
-        if (document.body) document.body.classList.remove('auth-pending');
-      }
-      function block() {
-        document.documentElement.innerHTML = '<body style="background:#151719;"></body>';
-      }
-
-      if (!window.crypto || !window.crypto.subtle) {
-        const pw = prompt('Password:');
-        if (pw === 'od1n2026') { unlock(); } else { block(); }
-        return;
-      }
-      const h = '3e8c567677368442f927f843b3a82fb8c3455cda8ed0e3c66bd75a443c060b74';
-      const pw = prompt('Password:');
-      if (!pw) { block(); return; }
-      (async () => {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-        const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-        if (hash === h) { unlock(); } else { alert('Wrong password'); block(); }
-      })();
+      var k='odin_auth',s=sessionStorage;
+      if(s.getItem(k)==='1'){document.getElementById('authGate').remove();return;}
+      var pw=prompt('Password:');
+      if(pw==='od1n2026'){s.setItem(k,'1');document.getElementById('authGate').remove();}
     })();
   </script>
+  <!-- AUTH:END -->
   <title>Odin Toolbar Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1168,7 +1146,6 @@
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
     }
 
     .floor-nav-item {
@@ -1203,13 +1180,14 @@
       width: 12px;
       background: var(--border--default);
       border-radius: 1px;
+      margin-right: 0;
       flex-shrink: 0;
       transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                   height 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                   background 0.3s,
                   opacity 0.3s;
     }
-    .floor-nav-item:hover .floor-nav-line { width: 22px; background: var(--border--strong); }
+    .floor-nav-item:hover .floor-nav-line { width: 18px; background: var(--border--strong); }
     .floor-nav-item.active .floor-nav-line { width: 22px; background: var(--accent--canvas--crosshair); height: 3px; }
 
     /* Floor counter — "3 / 25" below nav, clickable → input */
@@ -4685,6 +4663,10 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function positionFloorNav(frameEl) {
       floorNavFrame = frameEl;
       floorNavOwner = frameEl === towerFrame ? 'tower' : 'main';
+      // Reset spring animation when switching frames
+      if (springAnim) { cancelAnimationFrame(springAnim); springAnim = null; }
+      currentTrackY = 0;
+      floorNavTrack.style.transform = 'translateY(0px)';
       updateOverlayPositions();
     }
 
@@ -4813,10 +4795,26 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
     // Hover on multilayer frame → activate floor nav
     let hoverNavFrame = null;
-    let floorNavLocked = false; // true when counter input is focused
+    let floorNavLocked = false;
 
     function isNavSticky() {
       return floorNavLocked || selectedFrame === floorNavOwner;
+    }
+
+    // Switch nav to a different frame (only rebuilds if owner changes)
+    function switchNavTo(frameKey, frameEl) {
+      if (floorNavOwner === frameKey) return; // already showing this frame
+      loadFrameData(frameKey);
+      positionFloorNav(frameEl);
+      buildFloorDom();
+      // After rebuild, snap the track to correct position (no animation)
+      const total = floorEls.length;
+      const visCount = Math.min(MAX_VIS, total);
+      const activeIdx = floorEls.findIndex(e => e.id === activeFloor);
+      let scrollIdx = activeIdx - Math.floor(visCount / 2);
+      scrollIdx = Math.max(0, Math.min(scrollIdx, total - visCount));
+      currentTrackY = -scrollIdx * ITEM_H;
+      floorNavTrack.style.transform = `translateY(${currentTrackY}px)`;
     }
 
     function handleFrameHover(frameKey, frameEl) {
@@ -4824,13 +4822,10 @@ Try rephrasing your question or search for a tool in the command bar.`;
         if (selectedFrame === frameKey) return;
         if (!frameData[frameKey].isMultilayer) return;
         hoverNavFrame = frameKey;
-        if (floorNavOwner !== frameKey) {
-          loadFrameData(frameKey);
-          positionFloorNav(frameEl);
-          buildFloorDom();
-        }
+        switchNavTo(frameKey, frameEl);
         floorNav.classList.add('visible', 'active');
         frameEl.classList.add('nav-hover');
+        updateOverlayPositions();
       });
       frameEl.addEventListener('mouseleave', () => {
         if (selectedFrame === frameKey) return;
@@ -4849,17 +4844,19 @@ Try rephrasing your question or search for a tool in the command bar.`;
     // Floor nav hover keeps it active
     floorNav.addEventListener('mouseenter', () => {
       hoverNavFrame = floorNavOwner;
-      if (!floorNav.classList.contains('active') && floorNavOwner) {
-        floorNav.classList.add('active');
+      floorNav.classList.add('active');
+      if (floorNavOwner) {
+        const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
+        frameEl.classList.add('nav-hover');
       }
-      const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
-      frameEl.classList.add('nav-hover');
     });
     floorNav.addEventListener('mouseleave', () => {
       if (isNavSticky()) return;
       hoverNavFrame = null;
-      const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
-      frameEl.classList.remove('nav-hover');
+      if (floorNavOwner) {
+        const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
+        frameEl.classList.remove('nav-hover');
+      }
       setTimeout(() => {
         if (hoverNavFrame || isNavSticky()) return;
         floorNav.classList.remove('active');
@@ -4921,7 +4918,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
         { id: 1, label: 'F1', name: 'Floor 1' },
       ];
       frameData.main.floorHeights[1] = '2.80';
-      frameData.main.activeFloor = 1; // Navigate to the new floor
+      frameData.main.activeFloor = 1;
 
       isMultilayer = true;
       FLOORS = frameData.main.floors;
@@ -4944,6 +4941,10 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function buildFloorDom() {
       floorNavTrack.innerHTML = '';
       floorEls = [];
+
+      // Reset spring state
+      if (springAnim) { cancelAnimationFrame(springAnim); springAnim = null; }
+      currentTrackY = 0;
 
       // Remove old counter if exists
       const oldCounter = floorNav.querySelector('.floor-nav-counter');
@@ -5029,9 +5030,54 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function updateFloorCounter() {
       const counter = document.getElementById('floorNavCounter');
       if (!counter) return;
-      const sortedIds = FLOORS.map(f => f.id).sort((a, b) => a - b);
-      const currentIdx = sortedIds.indexOf(activeFloor) + 1;
-      counter.innerHTML = `<span class="counter-current">${currentIdx}</span><span class="counter-sep">/</span>${FLOORS.length}`;
+      const total = floorEls.length;
+      // Find which floor is active by checking the DOM
+      const activeEl = floorEls.find(e => e.item.classList.contains('active'));
+      // floorEls is high→low, reverse for low→high index
+      const sortedEls = floorEls.slice().reverse();
+      const currentIdx = activeEl ? sortedEls.indexOf(activeEl) + 1 : 1;
+      counter.innerHTML = `<span class="counter-current">${currentIdx}</span><span class="counter-sep">/</span>${total}`;
+    }
+
+    // ── Spring animation engine ──
+    let springAnim = null;
+    let currentTrackY = 0;
+
+    function springTo(targetY, jumpDistance) {
+      if (springAnim) cancelAnimationFrame(springAnim);
+
+      // Duration scales with jump distance: short jump = snappy, long jump = smooth
+      const clampedDist = Math.min(Math.abs(jumpDistance), 20);
+      const tension = 300 - clampedDist * 8;   // 300 (snappy) → 140 (soft)
+      const friction = 20 + clampedDist * 0.5;  // 20 → 30
+
+      let velocity = 0;
+      const mass = 1;
+      let pos = currentTrackY;
+      const target = targetY;
+
+      function tick() {
+        const displacement = pos - target;
+        const springForce = -tension * displacement;
+        const dampingForce = -friction * velocity;
+        const acceleration = (springForce + dampingForce) / mass;
+
+        velocity += acceleration * 0.016; // ~60fps timestep
+        pos += velocity * 0.016;
+
+        currentTrackY = pos;
+        floorNavTrack.style.transform = `translateY(${pos}px)`;
+
+        // Stop when settled
+        if (Math.abs(velocity) < 0.5 && Math.abs(pos - target) < 0.3) {
+          currentTrackY = target;
+          floorNavTrack.style.transform = `translateY(${target}px)`;
+          springAnim = null;
+          return;
+        }
+        springAnim = requestAnimationFrame(tick);
+      }
+      springAnim = requestAnimationFrame(tick);
     }
 
     function applyFloorNav() {
@@ -5048,7 +5094,16 @@ Try rephrasing your question or search for a tool in the command bar.`;
       let scrollIdx = activeIdx - Math.floor(visCount / 2);
       scrollIdx = Math.max(0, Math.min(scrollIdx, total - visCount));
 
-      floorNavTrack.style.transform = `translateY(${-scrollIdx * ITEM_H}px)`;
+      const targetY = -scrollIdx * ITEM_H;
+      const jumpDistance = Math.abs(targetY - currentTrackY) / ITEM_H;
+
+      // Animate if meaningful distance, otherwise snap
+      if (jumpDistance > 0.5) {
+        springTo(targetY, jumpDistance);
+      } else {
+        currentTrackY = targetY;
+        floorNavTrack.style.transform = `translateY(${targetY}px)`;
+      }
 
       // Edge fading: items near top/bottom of visible window get smaller
       const moreTop = scrollIdx > 0;
@@ -5058,10 +5113,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
         const isActive = el.id === activeFloor;
         el.item.classList.toggle('active', isActive);
 
-        // Position relative to visible window
-        const visPos = i - scrollIdx; // 0 = top of window
+        const visPos = i - scrollIdx;
 
-        // Active floor: always full
         if (isActive) {
           el.line.style.width = '22px';
           el.line.style.height = '3px';
@@ -5070,7 +5123,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
           return;
         }
 
-        // Edge scale
         let scale = 1;
         if (moreTop && visPos < FADE_N) {
           scale = Math.min(scale, 0.15 + 0.85 * (visPos / FADE_N));
@@ -5080,7 +5132,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
           scale = Math.min(scale, 0.15 + 0.85 * (fromBottom / FADE_N));
         }
 
-        el.line.style.width = Math.max(3, Math.round(12 * scale)) + 'px';
+        el.line.style.width = Math.max(4, Math.round(12 * scale)) + 'px';
         el.line.style.height = Math.max(1, Math.round(2 * scale)) + 'px';
         el.line.style.opacity = (0.2 + 0.8 * scale).toFixed(2);
         el.line.style.background = '';
@@ -5119,6 +5171,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
     positionFloorNav(towerFrame);
     buildFloorDom();
     floorNav.classList.add('visible'); // visible but not active = dimmed
+    updateFloorCounter(); // update counter while Tower data is still loaded
     // Reset globals back to main (no frame selected at start)
     loadFrameData('main');
     currentFrameKey = null;
