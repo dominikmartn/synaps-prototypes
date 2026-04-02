@@ -7,7 +7,7 @@
     (function(){
       const k = 'odin_auth';
       if (sessionStorage.getItem(k) === '1') return;
-      const h = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // sha256 of od1n2026
+      const h = '3e8c567677368442f927f843b3a82fb8c3455cda8ed0e3c66bd75a443c060b74'; // sha256 of od1n2026
       async function check(p) {
         const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
         return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -1132,15 +1132,17 @@
       opacity: 0;
       transition: opacity 0.25s;
       pointer-events: none;
+      /* Generous padding for larger hover area */
+      padding: 12px 16px 12px 24px;
     }
-    .floor-nav.visible { opacity: 1; pointer-events: none; cursor: pointer; }
-    .floor-nav.visible.active { pointer-events: auto; cursor: default; }
-    .floor-nav.visible:not(.active) { pointer-events: auto; } /* clickable to select frame */
+    .floor-nav.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
+    .floor-nav.visible.active { cursor: default; }
     /* Dimmed state: hide labels, active highlight becomes gray, items not interactive */
     .floor-nav.visible:not(.active) .floor-nav-label { opacity: 0 !important; }
     .floor-nav.visible:not(.active) .floor-nav-item.active .floor-nav-line { background: var(--border--strong) !important; }
     .floor-nav.visible:not(.active) .floor-nav-item { pointer-events: none; }
-    .floor-nav.visible:not(.active) .floor-nav-counter { display: none; }
+    .floor-nav.visible:not(.active) .floor-nav-counter { visibility: hidden; }
+    /* Counter always takes space (visibility not display) to prevent layout shift */
 
     .floor-nav-viewport {
       overflow: hidden;
@@ -4671,13 +4673,14 @@ Try rephrasing your question or search for a tool in the command bar.`;
     }
 
     function updateOverlayPositions() {
-      // Floor nav — left of its frame, vertically centered on frame midpoint
+      // Floor nav — right edge of nav aligns with left edge of frame, vertically centered
       if (floorNavFrame && floorNav.classList.contains('visible')) {
         const r = floorNavFrame.getBoundingClientRect();
         const navH = floorNav.offsetHeight;
-        floorNav.style.left = (r.left - 50) + 'px';
+        // 16px right-padding in the nav, so the lines end 16px from the right edge
+        // Position so the right edge of the nav (including padding) is at frame left + small gap
+        floorNav.style.left = (r.left - floorNav.offsetWidth + 8) + 'px';
         floorNav.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
-        floorNav.style.height = '';
       }
       // Page nav — centered below PDF frame (pageNav defined later, guard against undefined)
       const pn = document.getElementById('pageNav');
@@ -4793,30 +4796,34 @@ Try rephrasing your question or search for a tool in the command bar.`;
     });
 
     // Hover on multilayer frame → activate floor nav
-    let hoverNavFrame = null; // which frame is being hovered (not selected)
+    let hoverNavFrame = null;
+    let floorNavLocked = false; // true when counter input is focused
+
+    function isNavSticky() {
+      return floorNavLocked || selectedFrame === floorNavOwner;
+    }
 
     function handleFrameHover(frameKey, frameEl) {
       frameEl.addEventListener('mouseenter', () => {
         if (selectedFrame === frameKey) return;
         if (!frameData[frameKey].isMultilayer) return;
         hoverNavFrame = frameKey;
-        // Only switch nav if it's not already showing this frame
         if (floorNavOwner !== frameKey) {
           loadFrameData(frameKey);
           positionFloorNav(frameEl);
           buildFloorDom();
         }
         floorNav.classList.add('visible', 'active');
+        frameEl.classList.add('nav-hover');
       });
       frameEl.addEventListener('mouseleave', () => {
         if (selectedFrame === frameKey) return;
         hoverNavFrame = null;
-        // Small delay to allow moving to floor nav without flicker
+        frameEl.classList.remove('nav-hover');
         setTimeout(() => {
-          if (hoverNavFrame) return; // moved to another frame
-          if (selectedFrame === 'main' || selectedFrame === 'tower') return; // a frame got selected
+          if (hoverNavFrame || isNavSticky()) return;
           floorNav.classList.remove('active');
-        }, 50);
+        }, 100);
       });
     }
 
@@ -4825,20 +4832,22 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
     // Floor nav hover keeps it active
     floorNav.addEventListener('mouseenter', () => {
+      hoverNavFrame = floorNavOwner;
       if (!floorNav.classList.contains('active') && floorNavOwner) {
-        // Dimmed nav clicked/hovered — activate
         floorNav.classList.add('active');
-        const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
-        frameEl.classList.add('nav-hover');
       }
+      const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
+      frameEl.classList.add('nav-hover');
     });
     floorNav.addEventListener('mouseleave', () => {
-      if (selectedFrame === floorNavOwner) return;
+      if (isNavSticky()) return;
+      hoverNavFrame = null;
       const frameEl = floorNavOwner === 'tower' ? towerFrame : canvasFrame;
       frameEl.classList.remove('nav-hover');
-      if (!hoverNavFrame) {
+      setTimeout(() => {
+        if (hoverNavFrame || isNavSticky()) return;
         floorNav.classList.remove('active');
-      }
+      }, 100);
     });
 
     towerFrame.addEventListener('click', (e) => {
@@ -4965,12 +4974,15 @@ Try rephrasing your question or search for a tool in the command bar.`;
           inp.placeholder = currentIdx.toString();
           counter.appendChild(inp);
           inp.focus();
+          floorNavLocked = true;
 
           inp.addEventListener('mousedown', (ev) => ev.stopPropagation());
+          inp.addEventListener('click', (ev) => ev.stopPropagation());
           inp.addEventListener('keydown', (ev) => {
             ev.stopPropagation();
             if (ev.key === 'Enter') {
               const num = parseInt(inp.value.trim());
+              floorNavLocked = false;
               if (!isNaN(num)) {
                 let floor = FLOORS.find(f => f.id === num);
                 if (!floor) {
@@ -4986,9 +4998,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
                 updateFloorCounter();
               }
             }
-            if (ev.key === 'Escape') updateFloorCounter();
+            if (ev.key === 'Escape') { floorNavLocked = false; updateFloorCounter(); }
           });
-          inp.addEventListener('blur', () => setTimeout(updateFloorCounter, 100));
+          inp.addEventListener('blur', () => {
+            floorNavLocked = false;
+            setTimeout(updateFloorCounter, 100);
+          });
         });
       }
 
