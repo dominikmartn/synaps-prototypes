@@ -886,15 +886,15 @@
     body.tool-connect #toolSubmenu,
     body.tool-connect .canvas-frame,
     body.tool-connect .canvas-frame *,
-    body.tool-connect .floor-nav,
-    body.tool-connect .floor-nav *,
+    body.tool-connect .floor-selector-bar,
+    body.tool-connect .floor-selector-bar *,
     body.tool-connect .secondary-toolbar,
     body.tool-connect .secondary-toolbar *,
     body.tool-connect .properties-panel,
     body.tool-connect .properties-panel * { cursor: default; }
     /* Frame + floor nav must receive clicks even when polyline SVG has pointer-events:all */
     .canvas-frame { pointer-events: auto; }
-    .floor-nav.visible, .floor-nav.visible * { pointer-events: auto; }
+    .floor-selector-bar.visible, .floor-selector-bar.visible * { pointer-events: auto; }
 
     #polylineSVG {
       position: absolute;
@@ -1108,55 +1108,67 @@
     .canvas-frame.selected .frame-convert-btn { display: flex; }
     .canvas-frame.multilayer .frame-convert-btn { display: none; }
 
-    /* ─── Floor Navigation (fixed overlay, tracks frame position) ─── */
-    .floor-nav {
+    /* ─── Floor Selector Bar (fixed overlay, tracks frame position) ─── */
+    .floor-selector-bar {
       position: fixed;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
-      justify-content: center;
+      align-items: center;
+      justify-content: space-between;
       z-index: 85;
       opacity: 0;
       transition: opacity 0.25s;
       pointer-events: none;
-      /* Generous padding for larger hover area */
-      padding: 12px 16px 12px 24px;
+      width: 36px;
+      padding: 6px 0;
+      background: var(--surface--subtle);
+      border: 1px solid var(--border--default);
+      border-radius: var(--radius--container);
+      box-shadow: var(--shadow--toolbar);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
     }
-    .floor-nav.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
-    .floor-nav.visible.active { cursor: default; }
-    /* Dimmed state: hide labels, active highlight becomes gray, items not interactive */
-    .floor-nav.visible:not(.active) .floor-nav-label { opacity: 0 !important; }
-    .floor-nav.visible:not(.active) .floor-nav-item.active .floor-nav-line { background: var(--border--strong) !important; }
-    .floor-nav.visible:not(.active) .floor-nav-item { pointer-events: none; }
-    .floor-nav.visible:not(.active) .floor-nav-counter { visibility: hidden; }
+    .floor-selector-bar .floor-dots-viewport {
+      flex: 1;
+      min-height: 0;
+    }
+    .floor-selector-bar.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
+    .floor-selector-bar.visible.active { cursor: default; }
+    /* Dimmed state: hide labels, active dot becomes gray, items not interactive */
+    .floor-selector-bar.visible:not(.active) .floor-dot-label { opacity: 0 !important; }
+    .floor-selector-bar.visible:not(.active) .floor-dot-item.active .floor-dot { background: var(--border--strong) !important; }
+    .floor-selector-bar.visible:not(.active) .floor-dot-item { pointer-events: none; }
+    .floor-selector-bar.visible:not(.active) .floor-nav-counter { visibility: hidden; }
+    .floor-selector-bar.visible:not(.active) .fsb-btn { opacity: 0; pointer-events: none; }
     /* Counter always takes space (visibility not display) to prevent layout shift */
 
-    .floor-nav-viewport {
+    .floor-dots-viewport {
       overflow: hidden;
       position: relative;
     }
-    .floor-nav-track {
+    .floor-dots-track {
       display: flex;
       flex-direction: column;
-      align-items: flex-end;
+      align-items: center;
     }
 
-    .floor-nav-item {
+    .floor-dot-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
       height: 14px;
+      width: 100%;
       cursor: pointer;
       position: relative;
       flex-shrink: 0;
     }
-    .floor-nav-item::after {
+    .floor-dot-item::after {
       content: '';
       position: absolute;
-      inset: -2px -8px -2px -16px;
+      inset: -2px -8px;
     }
 
-    .floor-nav-label {
+    .floor-dot-label {
       font-size: 10px;
       font-weight: 500;
       color: rgba(255,255,255,0);
@@ -1164,31 +1176,48 @@
       transform: translateX(4px);
       white-space: nowrap;
       user-select: none;
+      position: absolute;
+      right: calc(100% + 6px);
     }
-    .floor-nav-item:hover .floor-nav-label { color: var(--content--secondary); transform: translateX(0); }
-    .floor-nav-item.active .floor-nav-label { color: var(--accent--canvas--crosshair); transform: translateX(0); }
+    .floor-dot-item:hover .floor-dot-label { color: var(--content--secondary); transform: translateX(0); }
+    .floor-dot-item.active .floor-dot-label { color: var(--accent--canvas--crosshair); transform: translateX(0); }
 
-    .floor-nav-line {
-      height: 2px;
-      width: 12px;
+    .floor-dot {
+      width: 6px;
+      height: 6px;
       background: var(--border--default);
-      border-radius: 1px;
-      margin-right: 0;
+      border-radius: 50%;
       flex-shrink: 0;
       transition: width 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                   height 0.3s cubic-bezier(0.25, 1, 0.5, 1),
                   background 0.3s,
                   opacity 0.3s;
     }
-    .floor-nav-item:hover .floor-nav-line { width: 18px; background: var(--border--strong); }
-    .floor-nav-item.active .floor-nav-line { width: 22px; background: var(--accent--canvas--crosshair); height: 3px; }
+    .floor-dot-item:hover .floor-dot { width: 7px; height: 7px; background: var(--border--strong); }
+    .floor-dot-item.active .floor-dot { width: 8px; height: 8px; background: var(--accent--canvas--crosshair); }
+
+    /* FSB action buttons (+ and Explode) */
+    .fsb-btn {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius--control);
+      color: var(--content--secondary);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.12s, color 0.12s, opacity 0.2s;
+    }
+    .fsb-btn svg { width: 12px; height: 12px; }
+    .fsb-btn:hover { background: var(--surface--controls--button-hover); color: var(--content--primary); }
 
     /* Floor counter — "3 / 25" below nav, clickable → input */
     .floor-nav-counter {
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      margin-top: 6px;
+      justify-content: center;
+      margin-top: 2px;
       font-size: 10px;
       font-weight: 500;
       color: var(--content--secondary);
@@ -1399,12 +1428,15 @@
     .sec-tb-btn {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 6px;
+      gap: 5px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 500;
       color: var(--content--primary);
       border-radius: var(--radius--control);
       cursor: pointer;
       transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
       user-select: none;
     }
     .sec-tb-btn:hover { background: var(--surface--controls--button-hover); }
@@ -1606,7 +1638,7 @@
     body.mode-section-cut { cursor: crosshair; }
     body.mode-section-cut .toolbar-container,
     body.mode-section-cut .canvas-frame,
-    body.mode-section-cut .floor-nav,
+    body.mode-section-cut .floor-selector-bar,
     body.mode-section-cut .secondary-toolbar,
     body.mode-section-cut .properties-panel { cursor: default; }
 
@@ -1697,17 +1729,7 @@
     .section-cut-line circle { fill: var(--accent--canvas--dot); }
     .section-cut-preview { stroke: var(--accent--canvas--guide); stroke-width: 1.5; stroke-dasharray: 4 4; }
 
-    .section-side-highlight {
-      position: absolute;
-      z-index: 56;
-      pointer-events: auto;
-      cursor: pointer;
-      transition: background 0.15s;
-      background: transparent;
-    }
-    .section-side-highlight:hover {
-      background: var(--accent--canvas--guide-fill);
-    }
+
 
     .section-cut-mark {
       position: absolute;
@@ -1753,6 +1775,22 @@
       border-color: var(--accent--canvas--guide);
       color: var(--accent--canvas--crosshair);
     }
+    .north-indicator {
+      position: absolute;
+      top: -20px;
+      right: 30px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--accent--canvas--crosshair);
+      background: var(--surface--subtle);
+      border: 1px solid var(--border--default);
+      border-radius: var(--radius--control);
+      padding: 2px 5px;
+      cursor: pointer;
+      z-index: 2;
+      backdrop-filter: blur(8px);
+    }
+    .north-indicator:hover { background: var(--surface--controls--button-hover); }
 
     /* ── Generated Frames ── */
     .generated-frame {
@@ -2160,12 +2198,24 @@
     <span class="mode-instruction-esc">esc</span>
   </div>
 
-  <!-- Floor Navigation — one per multilayer frame (fixed overlays) -->
-  <div class="floor-nav" id="floorNavMain">
-    <div class="floor-nav-viewport"><div class="floor-nav-track"></div></div>
+  <!-- Floor Selector Bar — one per multilayer frame (fixed overlays) -->
+  <div class="floor-selector-bar" id="floorNavMain">
+    <div class="fsb-btn fsb-add" title="Add Floor">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.14V14.86M1.14 7.95H14.86" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="floor-dots-viewport"><div class="floor-dots-track"></div></div>
+    <div class="fsb-btn fsb-explode" title="Explode">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M15.43.57h-.77c-1.43 0-2.72.89-3.22 2.24l-.02.05M4 8.57c0-.91.36-1.78 1-2.42.65-.65 1.52-1 2.43-1m0 10.28c3.79 0 6.86-3.07 6.86-6.86S11.22 1.71 7.43 1.71.57 4.78.57 8.57s3.07 6.86 6.86 6.86z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
   </div>
-  <div class="floor-nav" id="floorNavTower">
-    <div class="floor-nav-viewport"><div class="floor-nav-track"></div></div>
+  <div class="floor-selector-bar" id="floorNavTower">
+    <div class="fsb-btn fsb-add" title="Add Floor">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.14V14.86M1.14 7.95H14.86" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="floor-dots-viewport"><div class="floor-dots-track"></div></div>
+    <div class="fsb-btn fsb-explode" title="Explode">
+      <svg viewBox="0 0 16 16" fill="none"><path d="M15.43.57h-.77c-1.43 0-2.72.89-3.22 2.24l-.02.05M4 8.57c0-.91.36-1.78 1-2.42.65-.65 1.52-1 2.43-1m0 10.28c3.79 0 6.86-3.07 6.86-6.86S11.22 1.71 7.43 1.71.57 4.78.57 8.57s3.07 6.86 6.86 6.86z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
   </div>
 
   <!-- Page Navigation (fixed overlay) -->
@@ -2184,19 +2234,15 @@
     <span class="page-nav-label">1 / 3</span>
   </div>
 
-  <!-- Secondary Toolbar (icon-only ActionButtons, repo SecondaryToolbar pattern) -->
+  <!-- Secondary Toolbar (Section Cut + Elevation with icon + text) -->
   <div class="secondary-toolbar" id="secondaryToolbar">
-    <div class="sec-tb-btn" id="secAddFloor" title="Add Floor">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M8 1.14258V14.8569M1.14307 7.9541H14.8574" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
-    <div class="sec-tb-btn" id="secExplode" title="Explode">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M15.4282 0.571289H14.6611C13.2264 0.571289 11.9434 1.46458 11.4456 2.81013L11.4282 2.857M4 8.57115C4 7.66184 4.36122 6.78977 5.00421 6.14678C5.64719 5.5038 6.51926 5.14258 7.42857 5.14258M7.42843 15.4282C11.2155 15.4282 14.2856 12.3581 14.2856 8.57101C14.2856 4.78391 11.2155 1.71387 7.42843 1.71387C3.64134 1.71387 0.571289 4.78391 0.571289 8.57101C0.571289 12.3581 3.64134 15.4282 7.42843 15.4282Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
     <div class="sec-tb-btn" id="secSectionCut" title="Section Cut">
-      <svg viewBox="0 0 16 16" fill="none"><path d="M14.8572 5.00728L14.8572 2.28544C14.8572 1.65426 14.3456 1.14258 13.7144 1.14258H2.28581C1.65463 1.14258 1.14295 1.65426 1.14295 2.28544V5.00728M14.8572 10.9808L14.8572 13.714C14.8572 14.3452 14.3456 14.8569 13.7144 14.8569H2.28581C1.65463 14.8569 1.14295 14.3452 1.14295 13.714V10.9808M0.600098 7.99972H2.31438M4.88574 7.99972H6.60003M9.45703 7.99972H11.1713M13.7432 7.99972H15.4574" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 16 16" fill="none"><path d="M14.86 5V2.29C14.86 1.65 14.35 1.14 13.71 1.14H2.29C1.65 1.14 1.14 1.65 1.14 2.29V5M14.86 11V13.71C14.86 14.35 14.35 14.86 13.71 14.86H2.29C1.65 14.86 1.14 14.35 1.14 13.71V11M.6 8H2.31M4.89 8H6.6M9.46 8H11.17M13.74 8H15.46" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Section
     </div>
     <div class="sec-tb-btn" id="secElevation" title="Elevation">
       <svg viewBox="0 0 16 16" fill="none"><path d="M1.14 13.71h13.72M3.43 13.71V6.86l4.57-3.43 4.57 3.43v6.85" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.29 13.71v-3.43h3.43v3.43" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Elevation
     </div>
   </div>
 
@@ -4597,16 +4643,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
     // ── Frame Selection ──
     function collapseIfExploded() {
-      if (isExploded && mlExplodedGroup) {
-        removeExplodedGroup(mlExplodedGroup);
-        mlExplodedGroup = null;
-        isExploded = false;
-        if (explodedSourceFrame) explodedSourceFrame.style.display = '';
-        floorNav.style.display = '';
-        secExplodeBtn.innerHTML = EXPLODE_ICON; secExplodeBtn.title = 'Explode';
-        explodedSourceFrame = null;
-        explodedSourceKey = null;
-      }
       if (isPdfExploded && pdfExplodedGroup) {
         removeExplodedGroup(pdfExplodedGroup);
         pdfExplodedGroup = null;
@@ -4620,7 +4656,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function selectMainFrame() {
       collapseIfExploded();
       clearSelection();
-      focusedGroup = null;
       loadFrameData('main');
       selectedFrame = 'main';
       canvasFrame.classList.add('selected');
@@ -4646,7 +4681,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function selectTowerFrame() {
       collapseIfExploded();
       clearSelection();
-      focusedGroup = null;
       loadFrameData('tower');
       selectedFrame = 'tower';
       towerFrame.classList.add('selected');
@@ -4685,21 +4719,21 @@ Try rephrasing your question or search for a tool in the command bar.`;
     }
     function _syncOverlayPositions() {
       _overlayRafId = null;
-      // Floor nav — right edge of nav aligns with left edge of frame, vertically centered
+      // Floor selector bar — 8px gap left of frame, vertically centered
       if (floorNavFrame && floorNav.classList.contains('visible')) {
         const r = floorNavFrame.getBoundingClientRect();
-        const navH = floorNav.offsetHeight;
-        floorNav.style.left = (r.left - floorNav.offsetWidth + 8) + 'px';
-        floorNav.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
+        floorNav.style.left = (r.left - 36 - 8) + 'px';
+        floorNav.style.top = r.top + 'px';
+        floorNav.style.height = r.height + 'px';
       }
-      // Ghost floor nav — dimmed nav for the other frame (never show if same as primary)
+      // Ghost floor selector bar — dimmed bar for the other frame (never show if same as primary)
       if (ghostNavOwner === floorNavOwner) floorNavGhost.classList.remove('visible');
       if (ghostNavOwner && ghostNavOwner !== floorNavOwner && floorNavGhost.classList.contains('visible')) {
         const ghostFrameEl = ghostNavOwner === 'tower' ? towerFrame : canvasFrame;
         const r = ghostFrameEl.getBoundingClientRect();
-        const navH = floorNavGhost.offsetHeight;
-        floorNavGhost.style.left = (r.left - floorNavGhost.offsetWidth + 8) + 'px';
-        floorNavGhost.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
+        floorNavGhost.style.left = (r.left - 36 - 8) + 'px';
+        floorNavGhost.style.top = r.top + 'px';
+        floorNavGhost.style.height = r.height + 'px';
       }
       // Page nav — centered below PDF frame (pageNav defined later, guard against undefined)
       const pn = document.getElementById('pageNav');
@@ -4714,7 +4748,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
     function selectPdfFrame() {
       collapseIfExploded();
       clearSelection();
-      focusedGroup = null;
       selectedFrame = 'pdf';
       pdfFrame.classList.add('selected');
       propertiesPanel.classList.add('visible');
@@ -4747,21 +4780,19 @@ Try rephrasing your question or search for a tool in the command bar.`;
         selectedExplodedFrame.classList.remove('selected');
         selectedExplodedFrame = null;
       }
-      if (mlExplodedGroup) mlExplodedGroup.classList.remove('group-selected');
       if (pdfExplodedGroup) pdfExplodedGroup.classList.remove('group-selected');
     }
 
     // Show only the toolbar for the focused group, hide others
     function syncToolbars() {
-      if (focusedGroup === 'ml' || isExploded || (selectedFrame === 'main' && isMultilayer) || selectedFrame === 'tower') {
+      if ((selectedFrame === 'main' && isMultilayer) || selectedFrame === 'tower') {
         secondaryToolbar.classList.add('visible');
       } else {
         secondaryToolbar.classList.remove('visible');
       }
-
-      if (focusedGroup === 'pdf' || isPdfExploded || selectedFrame === 'pdf') {
+      if (selectedFrame === 'pdf') {
         pdfSecondaryToolbar.classList.add('visible');
-      } else {
+      } else if (!isPdfExploded) {
         pdfSecondaryToolbar.classList.remove('visible');
       }
     }
@@ -4777,13 +4808,11 @@ Try rephrasing your question or search for a tool in the command bar.`;
         + renderExportSection();
       wireExportActions();
       // Highlight the group border
-      if (type === 'ml' && mlExplodedGroup) mlExplodedGroup.classList.add('group-selected');
       if (type === 'pdf' && pdfExplodedGroup) pdfExplodedGroup.classList.add('group-selected');
     }
 
     function deselectAll() {
       clearSelection();
-      focusedGroup = null;
 
       // Deselect section cut marks
       canvasFrame.querySelectorAll('.section-cut-mark').forEach(m => {
@@ -4830,9 +4859,9 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
       // Save current nav as dimmed ghost for the old frame before switching
       if (floorNavOwner && frameData[floorNavOwner].isMultilayer) {
-        const ghostTrack = floorNavGhost.querySelector('.floor-nav-track');
+        const ghostTrack = floorNavGhost.querySelector('.floor-dots-track');
         ghostTrack.innerHTML = floorNavTrack.innerHTML;
-        const ghostViewport = floorNavGhost.querySelector('.floor-nav-viewport');
+        const ghostViewport = floorNavGhost.querySelector('.floor-dots-viewport');
         ghostViewport.style.height = floorNavViewport.style.height;
         ghostTrack.style.transform = floorNavTrack.style.transform;
         floorNavGhost.classList.add('visible');
@@ -4937,6 +4966,47 @@ Try rephrasing your question or search for a tool in the command bar.`;
       setActiveFloor(sorted[newIdx].id);
     }, { passive: false });
 
+    // Click-hold-drag on floor dots → scrub through floors
+    let floorDragActive = false;
+
+    floorNavViewport.addEventListener('mousedown', (e) => {
+      if (!floorNav.classList.contains('active')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      floorDragActive = true;
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!floorDragActive) return;
+      // Find which dot item is closest to cursor Y
+      const items = floorNav.querySelectorAll('.floor-dot-item');
+      let closestId = activeFloor;
+      let closestDist = Infinity;
+      items.forEach(item => {
+        const rect = item.getBoundingClientRect();
+        const centerY = rect.top + rect.height / 2;
+        const dist = Math.abs(e.clientY - centerY);
+        if (dist < closestDist) {
+          closestDist = dist;
+          const el = floorEls.find(fe => fe.item === item);
+          if (el) closestId = el.id;
+        }
+      });
+      if (closestId !== activeFloor) {
+        setActiveFloor(closestId);
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (floorDragActive) {
+        floorDragActive = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    });
+
     towerFrame.addEventListener('click', (e) => {
       e.stopPropagation();
       selectTowerFrame();
@@ -4952,7 +5022,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
       if (propertiesPanel.contains(e.target)) return;
       if (secondaryToolbar.contains(e.target) || pdfSecondaryToolbar.contains(e.target)) return;
       if (floorNav.contains(e.target)) return;
-      if (mlExplodedGroup && mlExplodedGroup.contains(e.target)) return;
       if (pdfExplodedGroup && pdfExplodedGroup.contains(e.target)) return;
       if (e.target.closest && e.target.closest('.section-cut-mark')) return;
       for (const gf of generatedFrames) {
@@ -5018,8 +5087,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
     }
 
     // ── Floor Navigation (windowed) ──
-    const floorNavTrack = floorNav.querySelector('.floor-nav-track');
-    const floorNavViewport = floorNav.querySelector('.floor-nav-viewport');
+    const floorNavTrack = floorNav.querySelector('.floor-dots-track');
+    const floorNavViewport = floorNav.querySelector('.floor-dots-viewport');
 
     const ITEM_H = 14;     // px per floor item (matches CSS height)
     const MAX_VIS = 14;
@@ -5041,12 +5110,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const sorted = FLOORS.slice().sort((a, b) => b.id - a.id);
       sorted.forEach(floor => {
         const item = document.createElement('div');
-        item.className = 'floor-nav-item';
+        item.className = 'floor-dot-item';
         const label = document.createElement('span');
-        label.className = 'floor-nav-label';
+        label.className = 'floor-dot-label';
         label.textContent = floor.label;
         const line = document.createElement('div');
-        line.className = 'floor-nav-line';
+        line.className = 'floor-dot';
         item.appendChild(label);
         item.appendChild(line);
         item.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -5205,10 +5274,10 @@ Try rephrasing your question or search for a tool in the command bar.`;
         const visPos = i - scrollIdx;
 
         if (isActive) {
-          el.line.style.width = '22px';
-          el.line.style.height = '3px';
+          el.line.style.width = '8px';
+          el.line.style.height = '8px';
           el.line.style.opacity = '1';
-          el.line.style.background = 'var(--accent--canvas--crosshair)';
+          el.line.style.background = '';
           return;
         }
 
@@ -5221,8 +5290,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
           scale = Math.min(scale, 0.15 + 0.85 * (fromBottom / FADE_N));
         }
 
-        el.line.style.width = Math.max(4, Math.round(12 * scale)) + 'px';
-        el.line.style.height = Math.max(1, Math.round(2 * scale)) + 'px';
+        el.line.style.width = Math.max(3, Math.round(6 * scale)) + 'px';
+        el.line.style.height = Math.max(3, Math.round(6 * scale)) + 'px';
         el.line.style.opacity = (0.2 + 0.8 * scale).toFixed(2);
         el.line.style.background = '';
       });
@@ -5260,8 +5329,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
     positionFloorNav(towerFrame);
     buildFloorDom();
     // Copy to ghost nav as dimmed, hide primary
-    const ghostTrack = floorNavGhost.querySelector('.floor-nav-track');
-    const ghostViewport = floorNavGhost.querySelector('.floor-nav-viewport');
+    const ghostTrack = floorNavGhost.querySelector('.floor-dots-track');
+    const ghostViewport = floorNavGhost.querySelector('.floor-dots-viewport');
     ghostTrack.innerHTML = floorNavTrack.innerHTML;
     ghostViewport.style.height = floorNavViewport.style.height;
     ghostTrack.style.transform = floorNavTrack.style.transform;
@@ -5301,41 +5370,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
       return { label: `F${id}`, name: `Floor ${id}` };
     }
 
-    document.getElementById('secAddFloor').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const newId = activeFloor + 1;
-
-      // Shift all floors above activeFloor up by 1
-      FLOORS.forEach(f => { if (f.id >= newId) f.id += 1; });
-      // Update labels + names for shifted floors
-      FLOORS.forEach(f => {
-        if (f.id > activeFloor) {
-          const ln = floorLabelForId(f.id);
-          f.label = ln.label;
-          f.name = ln.name;
-        }
-      });
-      // Update FLOOR_HEIGHTS keys for shifted floors (high → low to avoid overwrite)
-      const shiftedIds = Object.keys(FLOOR_HEIGHTS).map(Number).filter(k => k >= newId).sort((a, b) => b - a);
-      shiftedIds.forEach(k => { FLOOR_HEIGHTS[k + 1] = FLOOR_HEIGHTS[k]; delete FLOOR_HEIGHTS[k]; });
-      FLOOR_HEIGHTS[newId] = '2.80';
-
-      // Insert new floor
-      const ln = floorLabelForId(newId);
-      FLOORS.push({ id: newId, label: ln.label, name: ln.name });
-      FLOORS.sort((a, b) => a.id - b.id);
-
-      buildFloorDom();
-      setActiveFloor(newId);
-    });
-
     // Delete floor is now only in the Properties Panel (propDeleteFloor button)
 
     // ── Explode System — creates real frames side by side ──
     const EXPLODE_ICON = `<svg viewBox="0 0 16 16" fill="none"><path d="M15.4282 0.571289H14.6611C13.2264 0.571289 11.9434 1.46458 11.4456 2.81013L11.4282 2.857M4 8.57115C4 7.66184 4.36122 6.78977 5.00421 6.14678C5.64719 5.5038 6.51926 5.14258 7.42857 5.14258M7.42843 15.4282C11.2155 15.4282 14.2856 12.3581 14.2856 8.57101C14.2856 4.78391 11.2155 1.71387 7.42843 1.71387C3.64134 1.71387 0.571289 4.78391 0.571289 8.57101C0.571289 12.3581 3.64134 15.4282 7.42843 15.4282Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const COLLAPSE_ICON = `<svg viewBox="0 0 16 16" fill="none"><path d="M14.8571 8.39998L8.45711 11.6114C8.30822 11.6793 8.14647 11.7145 7.98282 11.7145C7.81918 11.7145 7.65743 11.6793 7.50854 11.6114L1.14282 8.39998M14.8571 11.5429L8.45711 14.7543C8.30822 14.8222 8.14647 14.8574 7.98282 14.8574C7.81918 14.8574 7.65743 14.8222 7.50854 14.7543L1.14282 11.5429M8.49749 8.4571C8.34048 8.53071 8.17113 8.56869 7.99997 8.56869C7.82879 8.56869 7.65945 8.53071 7.50245 8.4571L1.46866 5.43995C1.37067 5.3866 1.28834 5.30494 1.23081 5.20404C1.17328 5.10315 1.14282 4.987 1.14282 4.86852C1.14282 4.75004 1.17328 4.6339 1.23081 4.533C1.28834 4.43212 1.37067 4.35046 1.46866 4.2971L7.50245 1.2571C7.65945 1.18348 7.82879 1.14551 7.99997 1.14551C8.17113 1.14551 8.34048 1.18348 8.49749 1.2571L14.5313 4.27424C14.6292 4.3276 14.7116 4.40927 14.7691 4.51015C14.8266 4.61104 14.8571 4.72719 14.8571 4.84567C14.8571 4.96415 14.8266 5.0803 14.7691 5.18119C14.7116 5.28208 14.6292 5.36375 14.5313 5.4171L8.49749 8.4571Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-    let mlExplodedGroup = null; // DOM element for multilayer exploded group
     let pdfExplodedGroup = null;
     let isPdfExploded = false;
     const pdfExplodeBtn = document.getElementById('pdfExplode');
@@ -5428,43 +5468,102 @@ Try rephrasing your question or search for a tool in the command bar.`;
       clearSelection();
     }
 
-    // Multilayer Explode
-    const secExplodeBtn = document.getElementById('secExplode');
-    let isExploded = false;
-    let explodedSourceFrame = null; // remember which frame was exploded
-    let explodedSourceKey = null;   // 'main' or 'tower'
+    // Multilayer Explode — one-way export: creates independent frames to the right
+    function handleExplode() {
+      const af = getActiveFrame();
+      const posLeft = parseInt(af.style.left) || af.offsetLeft;
+      const posTop = parseInt(af.style.top) || af.offsetTop;
+      const items = FLOORS.slice().sort((a,b) => a.id - b.id).map(f => ({ label: f.name, floorId: f.id }));
 
-    secExplodeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
+      // Create independent frames to the right of the original
+      const startX = posLeft + af.offsetWidth + 40;
+      items.forEach((item, i) => {
+        const frame = document.createElement('div');
+        frame.className = 'generated-frame';
+        frame.style.cssText = `left:${startX + i * 230}px;top:${posTop}px;width:200px;height:${af.offsetHeight}px;`;
 
-      if (!isExploded) {
-        // Explode
-        explodedSourceFrame = getActiveFrame();
-        explodedSourceKey = selectedFrame;
-        isExploded = true;
+        const label = document.createElement('div');
+        label.className = 'generated-frame-label';
+        label.textContent = item.label;
+        frame.appendChild(label);
 
-        const posTop = parseInt(explodedSourceFrame.style.top) || explodedSourceFrame.offsetTop;
-        const posLeft = parseInt(explodedSourceFrame.style.left) || explodedSourceFrame.offsetLeft;
+        // Simple floor plan content
+        const h = af.offsetHeight;
+        frame.innerHTML += `<div style="position:absolute;inset:8px;"><svg viewBox="0 0 184 ${h-16}" fill="none" style="width:100%;height:100%;">
+          <rect x="2" y="2" width="180" height="${h-20}" stroke="#2a2a2a" stroke-width="2" rx="1"/>
+          <line x1="60" y1="2" x2="60" y2="${h-18}" stroke="#999"/>
+          <line x1="2" y1="${(h-16)/2}" x2="182" y2="${(h-16)/2}" stroke="#999"/>
+          <rect x="10" y="15" width="35" height="50" rx="2" stroke="#ccc" stroke-width=".5" fill="none"/>
+          <text x="92" y="${h-26}" text-anchor="middle" fill="#bbb" font-size="9" font-family="Inter">${item.label}</text>
+        </svg></div>`;
 
-        explodedSourceFrame.style.display = 'none';
-        floorNav.style.display = 'none';
-        const items = FLOORS.slice().sort((a,b) => a.id - b.id).map(f => ({ label: f.name, floorId: f.id }));
-        const name = getActiveFrameName();
-        mlExplodedGroup = createExplodedGroup(items, name + ' — Exploded', posTop, posLeft, 'ml');
-        secExplodeBtn.innerHTML = COLLAPSE_ICON; secExplodeBtn.title = 'Collapse';
-        selectExplodedGroup('ml');
-      } else {
-        // Collapse
-        removeExplodedGroup(mlExplodedGroup);
-        mlExplodedGroup = null;
-        isExploded = false;
-        if (explodedSourceFrame) explodedSourceFrame.style.display = '';
-        floorNav.style.display = '';
-        secExplodeBtn.innerHTML = EXPLODE_ICON; secExplodeBtn.title = 'Explode';
-        if (explodedSourceKey === 'tower') selectTowerFrame(); else selectMainFrame();
-        explodedSourceFrame = null;
-        explodedSourceKey = null;
-      }
+        frame.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deselectAll();
+          frame.classList.add('selected');
+          propertiesPanel.classList.add('visible');
+          const floorObj = FLOORS.find(f => f.id === item.floorId);
+          panelContent.innerHTML = renderFrameSection(getActiveFrameName(), { showGhost: false, showFormat: false })
+            + renderFloorSection(floorObj)
+            + renderExportSection();
+          wireFloorActions();
+          wireExportActions();
+        });
+
+        document.querySelector('.canvas').appendChild(frame);
+        generatedFrames.push(frame);
+      });
+    }
+
+    // ── Floor Selector Bar Buttons ──
+    // Wire all .fsb-add buttons (both bars) to the Add Floor logic
+    document.querySelectorAll('.fsb-add').forEach(btn => {
+      let fsbTtTimer = null;
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearTimeout(fsbTtTimer); hideTooltip();
+        const newId = activeFloor + 1;
+        FLOORS.forEach(f => { if (f.id >= newId) f.id += 1; });
+        FLOORS.forEach(f => {
+          if (f.id > activeFloor) {
+            const ln = floorLabelForId(f.id);
+            f.label = ln.label;
+            f.name = ln.name;
+          }
+        });
+        const shiftedIds = Object.keys(FLOOR_HEIGHTS).map(Number).filter(k => k >= newId).sort((a, b) => b - a);
+        shiftedIds.forEach(k => { FLOOR_HEIGHTS[k + 1] = FLOOR_HEIGHTS[k]; delete FLOOR_HEIGHTS[k]; });
+        FLOOR_HEIGHTS[newId] = '2.80';
+        const ln = floorLabelForId(newId);
+        FLOORS.push({ id: newId, label: ln.label, name: ln.name });
+        FLOORS.sort((a, b) => a.id - b.id);
+        buildFloorDom();
+        setActiveFloor(newId);
+      });
+      btn.addEventListener('mouseenter', () => {
+        fsbTtTimer = setTimeout(() => {
+          showTooltipAt(btn, `<span class="tt-name">${btn.title}</span>`);
+        }, ttDelay());
+      });
+      btn.addEventListener('mouseleave', () => { clearTimeout(fsbTtTimer); hideTooltip(); });
+    });
+
+    // Wire all .fsb-explode buttons to the one-way export
+    document.querySelectorAll('.fsb-explode').forEach(btn => {
+      let fsbTtTimer = null;
+      btn.addEventListener('mousedown', (e) => e.stopPropagation());
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearTimeout(fsbTtTimer); hideTooltip();
+        handleExplode();
+      });
+      btn.addEventListener('mouseenter', () => {
+        fsbTtTimer = setTimeout(() => {
+          showTooltipAt(btn, `<span class="tt-name">${btn.title}</span>`);
+        }, ttDelay());
+      });
+      btn.addEventListener('mouseleave', () => { clearTimeout(fsbTtTimer); hideTooltip(); });
     });
 
     // ── PDF Page Navigation (outside frame, centered below) ──
@@ -5585,7 +5684,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
     let sectionStart = null;
     let sectionEnd = null;
     let sectionLineEl = null;
-    let sectionSideEls = [];
     let sectionCount = 0;
     const generatedFrames = [];
 
@@ -5635,51 +5733,9 @@ Try rephrasing your question or search for a tool in the command bar.`;
       secSectionBtn.classList.remove('active-mode');
       hideModeUI();
       if (sectionLineEl) { sectionLineEl.remove(); sectionLineEl = null; }
-      sectionSideEls.forEach(el => el.remove());
-      sectionSideEls = [];
+      if (directionArrowEl) { directionArrowEl.remove(); directionArrowEl = null; }
       sectionStart = null;
       sectionEnd = null;
-    }
-
-    // Auto-extend a line defined by two points to the frame boundary
-    function extendLineToFrame(p1, p2, w, h) {
-      const dx = p2.x - p1.x;
-      const dy = p2.y - p1.y;
-      if (dx === 0 && dy === 0) return { start: p1, end: p2 };
-
-      const tValues = [];
-      if (dx !== 0) {
-        tValues.push(-p1.x / dx);         // left edge (x=0)
-        tValues.push((w - p1.x) / dx);    // right edge (x=w)
-      }
-      if (dy !== 0) {
-        tValues.push(-p1.y / dy);         // top edge (y=0)
-        tValues.push((h - p1.y) / dy);    // bottom edge (y=h)
-      }
-
-      // Find intersections that are within frame bounds
-      const hits = [];
-      tValues.forEach(t => {
-        const ix = p1.x + t * dx;
-        const iy = p1.y + t * dy;
-        if (ix >= -0.5 && ix <= w + 0.5 && iy >= -0.5 && iy <= h + 0.5) {
-          hits.push({ x: Math.max(0, Math.min(w, ix)), y: Math.max(0, Math.min(h, iy)), t });
-        }
-      });
-
-      hits.sort((a, b) => a.t - b.t);
-      // Deduplicate hits at same point (corner intersections)
-      const unique = [hits[0]];
-      for (let i = 1; i < hits.length; i++) {
-        const prev = unique[unique.length - 1];
-        if (Math.abs(hits[i].x - prev.x) > 1 || Math.abs(hits[i].y - prev.y) > 1) {
-          unique.push(hits[i]);
-        }
-      }
-      if (unique.length >= 2) {
-        return { start: unique[0], end: unique[unique.length - 1] };
-      }
-      return { start: p1, end: p2 };
     }
 
     function handleSectionClick(e) {
@@ -5699,12 +5755,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
         dot.setAttribute('fill', '#6ba5f5');
         sectionLineEl.appendChild(dot);
       } else {
-        const frameW = sectionTargetFrame.offsetWidth;
-        const frameH = sectionTargetFrame.offsetHeight;
-        const extended = extendLineToFrame(sectionStart, { x, y }, frameW, frameH);
-        sectionStart = extended.start;
-        sectionEnd = extended.end;
-
+        sectionEnd = { x, y };
         sectionLineEl.innerHTML = '';
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', sectionStart.x); line.setAttribute('y1', sectionStart.y);
@@ -5718,8 +5769,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
         });
         document.body.classList.remove('mode-section-cut');
         sectionMode = 'choosing';
-        updateModeText('Hover over a side and click to set the viewing direction');
-        showSectionSides();
+        updateModeText('Click the arrow to confirm direction, or click the other side to flip');
+        showDirectionArrow();
       }
     }
 
@@ -5730,15 +5781,10 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const y = e.clientY - rect.top;
       const old = sectionLineEl.querySelector('.section-cut-preview');
       if (old) old.remove();
-
-      const frameW = sectionTargetFrame.offsetWidth;
-      const frameH = sectionTargetFrame.offsetHeight;
-      const extended = extendLineToFrame(sectionStart, { x, y }, frameW, frameH);
-
       const preview = document.createElementNS('http://www.w3.org/2000/svg', 'line');
       preview.classList.add('section-cut-preview');
-      preview.setAttribute('x1', extended.start.x); preview.setAttribute('y1', extended.start.y);
-      preview.setAttribute('x2', extended.end.x); preview.setAttribute('y2', extended.end.y);
+      preview.setAttribute('x1', sectionStart.x); preview.setAttribute('y1', sectionStart.y);
+      preview.setAttribute('x2', x); preview.setAttribute('y2', y);
       sectionLineEl.appendChild(preview);
     }
 
@@ -5747,61 +5793,91 @@ Try rephrasing your question or search for a tool in the command bar.`;
     towerFrame.addEventListener('click', handleSectionClick);
     towerFrame.addEventListener('mousemove', handleSectionMousemove);
 
-    function showSectionSides() {
-      const W = sectionTargetFrame.offsetWidth;
-      const H = sectionTargetFrame.offsetHeight;
+    let directionArrowEl = null;
+    let currentDirection = 'A';
 
-      // Both sectionStart and sectionEnd are on the frame boundary (auto-extended).
-      // Map each point to a perimeter parameter t (0→4, clockwise from top-left).
-      function perimT(p) {
-        const eps = 2;
-        if (p.y <= eps)      return p.x / W;             // top edge:    0..1
-        if (p.x >= W - eps)  return 1 + p.y / H;         // right edge:  1..2
-        if (p.y >= H - eps)  return 2 + (W - p.x) / W;   // bottom edge: 2..3
-        return 3 + (H - p.y) / H;                         // left edge:   3..4
+    function showDirectionArrow() {
+      if (directionArrowEl) directionArrowEl.remove();
+
+      const dx = sectionEnd.x - sectionStart.x;
+      const dy = sectionEnd.y - sectionStart.y;
+      const midX = (sectionStart.x + sectionEnd.x) / 2;
+      const midY = (sectionStart.y + sectionEnd.y) / 2;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len === 0) return;
+
+      // Perpendicular unit vector
+      const px = -dy / len;
+      const py = dx / len;
+
+      directionArrowEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      directionArrowEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:auto;cursor:pointer;z-index:57;';
+
+      function renderArrow() {
+        directionArrowEl.innerHTML = '';
+        const sign = currentDirection === 'A' ? 1 : -1;
+        const arrowDist = 25;
+        const tipX = midX + px * arrowDist * sign;
+        const tipY = midY + py * arrowDist * sign;
+
+        // Triangle arrow head
+        const baseLen = 8;
+        const nx = dx / len; // line direction unit vector
+        const ny = dy / len;
+        const b1x = tipX - nx * baseLen;
+        const b1y = tipY - ny * baseLen;
+        const b2x = tipX + nx * baseLen;
+        const b2y = tipY + ny * baseLen;
+
+        // Stem from line center to arrow
+        const stemLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        stemLine.setAttribute('x1', midX); stemLine.setAttribute('y1', midY);
+        stemLine.setAttribute('x2', tipX - px * 5 * sign); stemLine.setAttribute('y2', tipY - py * 5 * sign);
+        stemLine.setAttribute('stroke', '#6ba5f5');
+        stemLine.setAttribute('stroke-width', '1.5');
+        directionArrowEl.appendChild(stemLine);
+
+        // Arrow triangle
+        const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        arrow.setAttribute('points', `${tipX},${tipY} ${b1x},${b1y} ${b2x},${b2y}`);
+        arrow.setAttribute('fill', '#6ba5f5');
+        arrow.setAttribute('opacity', '0.9');
+        directionArrowEl.appendChild(arrow);
+
+        // Invisible hit area
+        const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        hitArea.setAttribute('cx', midX);
+        hitArea.setAttribute('cy', midY);
+        hitArea.setAttribute('r', '35');
+        hitArea.setAttribute('fill', 'transparent');
+        directionArrowEl.appendChild(hitArea);
       }
 
-      let pA = sectionStart, pB = sectionEnd;
-      let tA = perimT(pA), tB = perimT(pB);
-      // Ensure tA < tB so "side1" is the clockwise segment from A→B
-      if (tA > tB) { [pA, pB] = [pB, pA]; [tA, tB] = [tB, tA]; }
+      renderArrow();
 
-      const corners = [
-        { x: 0, y: 0, t: 0 },
-        { x: W, y: 0, t: 1 },
-        { x: W, y: H, t: 2 },
-        { x: 0, y: H, t: 3 },
-      ];
+      directionArrowEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = sectionTargetFrame.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        // Which side of the line was clicked?
+        const cross = (clickX - sectionStart.x) * dy - (clickY - sectionStart.y) * dx;
+        const clickedSide = cross > 0 ? 'A' : 'B';
 
-      // Side 1: pA → corners between tA and tB → pB (clockwise short way)
-      const poly1 = [pA];
-      corners.forEach(c => { if (c.t > tA && c.t < tB) poly1.push(c); });
-      poly1.push(pB);
+        if (clickedSide !== currentDirection) {
+          // Flip arrow
+          currentDirection = clickedSide;
+          renderArrow();
+        } else {
+          // Confirm — generate section
+          generateSectionFrame(currentDirection);
+          directionArrowEl.remove();
+          directionArrowEl = null;
+          currentDirection = 'A';
+        }
+      });
 
-      // Side 2: pB → corners between tB and tA (clockwise long way, wrapping) → pA
-      const poly2 = [pB];
-      corners.forEach(c => { if (c.t > tB) poly2.push(c); });
-      corners.forEach(c => { if (c.t < tA) poly2.push(c); });
-      poly2.push(pA);
-
-      function toClip(pts) {
-        return `polygon(${pts.map(p => `${p.x}px ${p.y}px`).join(', ')})`;
-      }
-
-      const sideA = document.createElement('div');
-      sideA.className = 'section-side-highlight';
-      sideA.style.cssText = `left:0;top:0;width:100%;height:100%;clip-path:${toClip(poly1)};`;
-
-      const sideB = document.createElement('div');
-      sideB.className = 'section-side-highlight';
-      sideB.style.cssText = `left:0;top:0;width:100%;height:100%;clip-path:${toClip(poly2)};`;
-
-      sideA.addEventListener('click', (e) => { e.stopPropagation(); generateSectionFrame('A'); });
-      sideB.addEventListener('click', (e) => { e.stopPropagation(); generateSectionFrame('B'); });
-
-      sectionTargetFrame.appendChild(sideA);
-      sectionTargetFrame.appendChild(sideB);
-      sectionSideEls = [sideA, sideB];
+      sectionTargetFrame.appendChild(directionArrowEl);
     }
 
     function generateSectionFrame(side) {
@@ -5810,8 +5886,6 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const name = `Section ${letter}-${letter}`;
 
       // Clean up
-      sectionSideEls.forEach(el => el.remove());
-      sectionSideEls = [];
       if (sectionLineEl) { sectionLineEl.remove(); sectionLineEl = null; }
       secSectionBtn.classList.remove('active-mode');
       hideModeUI();
@@ -6066,7 +6140,119 @@ Try rephrasing your question or search for a tool in the command bar.`;
     // ══════════════════════════════════════════════════════════════════
 
     let compassEl = null;
+    let northAngle = null; // radians, null = not set
+    let northPointFrame = null; // which frame element has north set
+    let northPointStart = null;
     const elevationCounts = { North: 0, South: 0, East: 0, West: 0 };
+
+    function startNorthPointFlow() {
+      northPointStart = null;
+      showModeUI('Elevation — Set North', 'Click a point on the floor plan to start');
+
+      let northPreviewLine = null;
+
+      function cleanup() {
+        sectionTargetFrame.removeEventListener('click', handleFirstClick, true);
+        sectionTargetFrame.removeEventListener('click', handleSecondClick, true);
+        sectionTargetFrame.removeEventListener('mousemove', handleMove);
+        if (northPreviewLine) { northPreviewLine.remove(); northPreviewLine = null; }
+      }
+
+      function handleFirstClick(e) {
+        e.stopPropagation();
+        const rect = sectionTargetFrame.getBoundingClientRect();
+        northPointStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        updateModeText('Move mouse to set North direction, click to confirm');
+
+        // Create preview SVG
+        northPreviewLine = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        northPreviewLine.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:57;';
+        sectionTargetFrame.appendChild(northPreviewLine);
+
+        sectionTargetFrame.removeEventListener('click', handleFirstClick, true);
+        sectionTargetFrame.addEventListener('mousemove', handleMove);
+        sectionTargetFrame.addEventListener('click', handleSecondClick, true);
+      }
+
+      function handleMove(e) {
+        if (!northPointStart || !northPreviewLine) return;
+        const rect = sectionTargetFrame.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        northPreviewLine.innerHTML = '';
+
+        // Line from start to cursor
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', northPointStart.x); line.setAttribute('y1', northPointStart.y);
+        line.setAttribute('x2', x); line.setAttribute('y2', y);
+        line.setAttribute('stroke', '#6ba5f5'); line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('stroke-dasharray', '4 3');
+        northPreviewLine.appendChild(line);
+
+        // "N" label at cursor end
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', x); label.setAttribute('y', y - 10);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('fill', '#6ba5f5'); label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', '700'); label.setAttribute('font-family', 'Inter');
+        label.textContent = 'N';
+        northPreviewLine.appendChild(label);
+
+        // Dot at start
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', northPointStart.x); dot.setAttribute('cy', northPointStart.y);
+        dot.setAttribute('r', '3'); dot.setAttribute('fill', '#6ba5f5');
+        northPreviewLine.appendChild(dot);
+      }
+
+      function handleSecondClick(e) {
+        e.stopPropagation();
+        const rect = sectionTargetFrame.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        // Calculate angle: atan2 with inverted Y (screen coords)
+        northAngle = Math.atan2(-(y - northPointStart.y), x - northPointStart.x);
+        northPointFrame = sectionTargetFrame;
+
+        cleanup();
+        hideModeUI();
+
+        // Show small N indicator on frame
+        showNorthIndicator();
+
+        // Now show the rotated compass
+        showCompass();
+      }
+
+      sectionTargetFrame.addEventListener('click', handleFirstClick, true);
+
+      // Allow Escape to cancel
+      function handleEsc(e) {
+        if (e.key === 'Escape') {
+          cleanup();
+          hideModeUI();
+          document.removeEventListener('keydown', handleEsc);
+        }
+      }
+      document.addEventListener('keydown', handleEsc);
+    }
+
+    function showNorthIndicator() {
+      sectionTargetFrame.querySelector('.north-indicator')?.remove();
+      const indicator = document.createElement('div');
+      indicator.className = 'north-indicator';
+      indicator.textContent = 'N';
+      indicator.title = 'North direction — click to reset';
+      indicator.addEventListener('click', (e) => {
+        e.stopPropagation();
+        northAngle = null;
+        northPointFrame = null;
+        indicator.remove();
+      });
+      indicator.addEventListener('mousedown', (e) => e.stopPropagation());
+      sectionTargetFrame.appendChild(indicator);
+    }
 
     function showCompass() {
       if (compassEl) compassEl.remove();
@@ -6087,17 +6273,21 @@ Try rephrasing your question or search for a tool in the command bar.`;
       ring.style.cssText = 'inset:0;position:absolute;';
       compassEl.appendChild(ring);
 
+      const rotation = northAngle || 0;
+
       const markers = [
-        { dir: 'North', label: 'N', x: '50%', y: '0%', tx: '-50%', ty: '-50%' },
-        { dir: 'South', label: 'S', x: '50%', y: '100%', tx: '-50%', ty: '-50%' },
-        { dir: 'East',  label: 'E', x: '100%', y: '50%', tx: '-50%', ty: '-50%' },
-        { dir: 'West',  label: 'W', x: '0%', y: '50%', tx: '-50%', ty: '-50%' },
+        { dir: 'North', label: 'N', angle: rotation },
+        { dir: 'South', label: 'S', angle: rotation + Math.PI },
+        { dir: 'East',  label: 'E', angle: rotation - Math.PI / 2 },
+        { dir: 'West',  label: 'W', angle: rotation + Math.PI / 2 },
       ];
 
       markers.forEach(m => {
         const marker = document.createElement('div');
         marker.className = 'compass-marker';
-        marker.style.cssText = `left:${m.x};top:${m.y};transform:translate(${m.tx},${m.ty});position:absolute;`;
+        const mx = 50 + Math.cos(m.angle) * 45;
+        const my = 50 - Math.sin(m.angle) * 45;
+        marker.style.cssText = `left:${mx}%;top:${my}%;transform:translate(-50%,-50%);position:absolute;`;
         marker.textContent = m.label;
         marker.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -6136,7 +6326,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
     document.getElementById('secElevation').addEventListener('click', (e) => {
       e.stopPropagation();
       if (compassEl) { hideCompass(); return; }
-      showCompass();
+      sectionTargetFrame = getActiveFrame();
+      if (northAngle !== null && northPointFrame === sectionTargetFrame) {
+        showCompass();
+      } else {
+        startNorthPointFlow();
+      }
     });
 
     // ══════════════════════════════════════════════════════════════════
