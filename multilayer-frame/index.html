@@ -5,14 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- AUTH:START -->
   <style id="authGate">body{visibility:hidden !important;height:0 !important;overflow:hidden !important;}</style>
-  <script>
-    (function(){
-      var k='odin_auth',s=sessionStorage;
-      if(s.getItem(k)==='1'){document.getElementById('authGate').remove();return;}
-      var pw=prompt('Password:');
-      if(pw==='od1n2026'){s.setItem(k,'1');document.getElementById('authGate').remove();}
-    })();
-  </script>
+  <script>(function(){var k='odin_auth',s=sessionStorage;if(s.getItem(k)==='1'){document.getElementById('authGate').remove();return;}var pw=prompt('Password:');if(pw==='od1n2026'){s.setItem(k,'1');document.getElementById('authGate').remove();}})();</script>
   <!-- AUTH:END -->
   <title>Odin Toolbar Prototype</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2167,11 +2160,12 @@
     <span class="mode-instruction-esc">esc</span>
   </div>
 
-  <!-- Floor Navigation (fixed overlay) -->
-  <div class="floor-nav" id="floorNav">
-    <div class="floor-nav-viewport" id="floorNavViewport">
-      <div class="floor-nav-track" id="floorNavTrack"></div>
-    </div>
+  <!-- Floor Navigation — one per multilayer frame (fixed overlays) -->
+  <div class="floor-nav" id="floorNavMain">
+    <div class="floor-nav-viewport"><div class="floor-nav-track"></div></div>
+  </div>
+  <div class="floor-nav" id="floorNavTower">
+    <div class="floor-nav-viewport"><div class="floor-nav-track"></div></div>
   </div>
 
   <!-- Page Navigation (fixed overlay) -->
@@ -4527,7 +4521,11 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
     const canvasFrame = document.getElementById('canvasFrame');
     const frameConvertBtn = document.getElementById('frameConvertBtn');
-    const floorNav = document.getElementById('floorNav');
+    // Primary floor nav (interactive, for the active/hovered frame)
+    const floorNav = document.getElementById('floorNavMain');
+    // Secondary floor nav (dimmed snapshot for the other frame)
+    const floorNavGhost = document.getElementById('floorNavTower');
+    let ghostNavOwner = null; // which frame the ghost nav belongs to
     const secondaryToolbar = document.getElementById('secondaryToolbar');
     const pdfSecondaryToolbar = document.getElementById('pdfSecondaryToolbar');
     const propertiesPanel = document.getElementById('propertiesPanel');
@@ -4609,6 +4607,14 @@ Try rephrasing your question or search for a tool in the command bar.`;
         explodedSourceFrame = null;
         explodedSourceKey = null;
       }
+      if (isPdfExploded && pdfExplodedGroup) {
+        removeExplodedGroup(pdfExplodedGroup);
+        pdfExplodedGroup = null;
+        isPdfExploded = false;
+        pdfFrame.style.display = '';
+        pageNav.style.display = '';
+        pdfExplodeBtn.innerHTML = EXPLODE_ICON; pdfExplodeBtn.title = 'Explode';
+      }
     }
 
     function selectMainFrame() {
@@ -4661,24 +4667,39 @@ Try rephrasing your question or search for a tool in the command bar.`;
     let floorNavFrame = null; // DOM element the floor nav tracks
 
     function positionFloorNav(frameEl) {
+      const newOwner = frameEl === towerFrame ? 'tower' : 'main';
+      // Only snap if actually switching to a different frame
+      if (newOwner !== floorNavOwner) {
+        if (springAnim) { cancelAnimationFrame(springAnim); springAnim = null; }
+        floorNavSnap = true;
+      }
       floorNavFrame = frameEl;
-      floorNavOwner = frameEl === towerFrame ? 'tower' : 'main';
-      // Reset spring animation when switching frames
-      if (springAnim) { cancelAnimationFrame(springAnim); springAnim = null; }
-      currentTrackY = 0;
-      floorNavTrack.style.transform = 'translateY(0px)';
+      floorNavOwner = newOwner;
       updateOverlayPositions();
     }
 
+    let _overlayRafId = null;
     function updateOverlayPositions() {
+      if (_overlayRafId) return; // already scheduled — coalesce rapid calls
+      _overlayRafId = requestAnimationFrame(_syncOverlayPositions);
+    }
+    function _syncOverlayPositions() {
+      _overlayRafId = null;
       // Floor nav — right edge of nav aligns with left edge of frame, vertically centered
       if (floorNavFrame && floorNav.classList.contains('visible')) {
         const r = floorNavFrame.getBoundingClientRect();
         const navH = floorNav.offsetHeight;
-        // 16px right-padding in the nav, so the lines end 16px from the right edge
-        // Position so the right edge of the nav (including padding) is at frame left + small gap
         floorNav.style.left = (r.left - floorNav.offsetWidth + 8) + 'px';
         floorNav.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
+      }
+      // Ghost floor nav — dimmed nav for the other frame (never show if same as primary)
+      if (ghostNavOwner === floorNavOwner) floorNavGhost.classList.remove('visible');
+      if (ghostNavOwner && ghostNavOwner !== floorNavOwner && floorNavGhost.classList.contains('visible')) {
+        const ghostFrameEl = ghostNavOwner === 'tower' ? towerFrame : canvasFrame;
+        const r = ghostFrameEl.getBoundingClientRect();
+        const navH = floorNavGhost.offsetHeight;
+        floorNavGhost.style.left = (r.left - floorNavGhost.offsetWidth + 8) + 'px';
+        floorNavGhost.style.top = (r.top + r.height / 2 - navH / 2) + 'px';
       }
       // Page nav — centered below PDF frame (pageNav defined later, guard against undefined)
       const pn = document.getElementById('pageNav');
@@ -4738,10 +4759,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
         secondaryToolbar.classList.remove('visible');
       }
 
-      if (focusedGroup === 'pdf') {
+      if (focusedGroup === 'pdf' || isPdfExploded || selectedFrame === 'pdf') {
         pdfSecondaryToolbar.classList.add('visible');
-      } else if (!isPdfExploded) {
-        pdfSecondaryToolbar.classList.remove('visible');
       } else {
         pdfSecondaryToolbar.classList.remove('visible');
       }
@@ -4783,8 +4802,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
         frameData[currentFrameKey].isMultilayer = isMultilayer;
       }
 
-      // Keep floor nav + page nav visible but dimmed
+      // Keep floor navs + page nav visible but dimmed
       floorNav.classList.remove('active');
+      // Primary nav becomes a ghost for its current owner
+      if (floorNavOwner && frameData[floorNavOwner].isMultilayer) {
+        floorNav.classList.add('visible');
+      }
       pageNav.classList.remove('active');
     }
 
@@ -4804,6 +4827,25 @@ Try rephrasing your question or search for a tool in the command bar.`;
     // Switch nav to a different frame (only rebuilds if owner changes)
     function switchNavTo(frameKey, frameEl) {
       if (floorNavOwner === frameKey) return; // already showing this frame
+
+      // Save current nav as dimmed ghost for the old frame before switching
+      if (floorNavOwner && frameData[floorNavOwner].isMultilayer) {
+        const ghostTrack = floorNavGhost.querySelector('.floor-nav-track');
+        ghostTrack.innerHTML = floorNavTrack.innerHTML;
+        const ghostViewport = floorNavGhost.querySelector('.floor-nav-viewport');
+        ghostViewport.style.height = floorNavViewport.style.height;
+        ghostTrack.style.transform = floorNavTrack.style.transform;
+        floorNavGhost.classList.add('visible');
+        floorNavGhost.classList.remove('active');
+        ghostNavOwner = floorNavOwner;
+      }
+
+      // Hide ghost if it belongs to the frame we're switching TO (no overlap)
+      if (ghostNavOwner === frameKey) {
+        floorNavGhost.classList.remove('visible');
+        ghostNavOwner = null;
+      }
+
       loadFrameData(frameKey);
       positionFloorNav(frameEl);
       buildFloorDom();
@@ -4834,6 +4876,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
         setTimeout(() => {
           if (hoverNavFrame || isNavSticky()) return;
           floorNav.classList.remove('active');
+          floorNav.classList.add('visible');
+          // Hide ghost if it's at the same frame as primary (prevent double)
+          if (ghostNavOwner === floorNavOwner) {
+            floorNavGhost.classList.remove('visible');
+          }
+          updateOverlayPositions();
         }, 100);
       });
     }
@@ -4862,6 +4910,32 @@ Try rephrasing your question or search for a tool in the command bar.`;
         floorNav.classList.remove('active');
       }, 100);
     });
+
+    // Scroll wheel on floor nav → navigate between floors
+    let lastFloorWheelTime = 0;
+    floorNav.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - lastFloorWheelTime < 50) return;
+      lastFloorWheelTime = now;
+
+      if (!FLOORS || FLOORS.length < 2) return;
+      const sorted = FLOORS.slice().sort((a, b) => a.id - b.id);
+      const currentIdx = sorted.findIndex(f => f.id === activeFloor);
+      if (currentIdx === -1) return;
+
+      let newIdx;
+      if (e.deltaY > 0) {
+        // scroll down → next floor (lower id)
+        newIdx = currentIdx - 1;
+      } else {
+        // scroll up → previous floor (higher id)
+        newIdx = currentIdx + 1;
+      }
+      if (newIdx < 0 || newIdx >= sorted.length) return;
+      setActiveFloor(sorted[newIdx].id);
+    }, { passive: false });
 
     towerFrame.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -4927,11 +5001,25 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
       canvasFrame.classList.add('multilayer');
       selectMainFrame();
+
+      // Entrance animation for floor nav: fade in + slide from right
+      floorNav.style.transition = 'none';
+      floorNav.style.opacity = '0';
+      floorNav.style.transform = 'translateX(8px)';
+      floorNav.offsetHeight; // force reflow
+      floorNav.style.transition = 'opacity 300ms cubic-bezier(0.25, 1, 0.5, 1), transform 300ms cubic-bezier(0.25, 1, 0.5, 1)';
+      floorNav.style.opacity = '1';
+      floorNav.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        floorNav.style.transition = '';
+        floorNav.style.opacity = '';
+        floorNav.style.transform = '';
+      }, 350);
     }
 
     // ── Floor Navigation (windowed) ──
-    const floorNavTrack = document.getElementById('floorNavTrack');
-    const floorNavViewport = document.getElementById('floorNavViewport');
+    const floorNavTrack = floorNav.querySelector('.floor-nav-track');
+    const floorNavViewport = floorNav.querySelector('.floor-nav-viewport');
 
     const ITEM_H = 14;     // px per floor item (matches CSS height)
     const MAX_VIS = 14;
@@ -4942,9 +5030,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
       floorNavTrack.innerHTML = '';
       floorEls = [];
 
-      // Reset spring state
+      // Cancel running spring animation (rebuild resets DOM)
       if (springAnim) { cancelAnimationFrame(springAnim); springAnim = null; }
-      currentTrackY = 0;
 
       // Remove old counter if exists
       const oldCounter = floorNav.querySelector('.floor-nav-counter');
@@ -5042,6 +5129,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
     // ── Spring animation engine ──
     let springAnim = null;
     let currentTrackY = 0;
+    let floorNavSnap = false; // when true, next applyFloorNav snaps instead of animating
 
     function springTo(targetY, jumpDistance) {
       if (springAnim) cancelAnimationFrame(springAnim);
@@ -5097,12 +5185,13 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const targetY = -scrollIdx * ITEM_H;
       const jumpDistance = Math.abs(targetY - currentTrackY) / ITEM_H;
 
-      // Animate if meaningful distance, otherwise snap
-      if (jumpDistance > 0.5) {
-        springTo(targetY, jumpDistance);
-      } else {
+      // Snap after rebuild, animate otherwise
+      if (floorNavSnap || jumpDistance < 0.5) {
         currentTrackY = targetY;
         floorNavTrack.style.transform = `translateY(${targetY}px)`;
+        floorNavSnap = false;
+      } else {
+        springTo(targetY, jumpDistance);
       }
 
       // Edge fading: items near top/bottom of visible window get smaller
@@ -5170,11 +5259,19 @@ Try rephrasing your question or search for a tool in the command bar.`;
     loadFrameData('tower');
     positionFloorNav(towerFrame);
     buildFloorDom();
-    floorNav.classList.add('visible'); // visible but not active = dimmed
-    updateFloorCounter(); // update counter while Tower data is still loaded
+    // Copy to ghost nav as dimmed, hide primary
+    const ghostTrack = floorNavGhost.querySelector('.floor-nav-track');
+    const ghostViewport = floorNavGhost.querySelector('.floor-nav-viewport');
+    ghostTrack.innerHTML = floorNavTrack.innerHTML;
+    ghostViewport.style.height = floorNavViewport.style.height;
+    ghostTrack.style.transform = floorNavTrack.style.transform;
+    floorNavGhost.classList.add('visible');
+    ghostNavOwner = 'tower';
+    floorNav.classList.remove('visible');
     // Reset globals back to main (no frame selected at start)
     loadFrameData('main');
     currentFrameKey = null;
+    requestAnimationFrame(() => { _syncOverlayPositions(); });
 
     // Click on dimmed floor nav → select the associated frame
     floorNav.addEventListener('click', (e) => {
@@ -5240,6 +5337,8 @@ Try rephrasing your question or search for a tool in the command bar.`;
 
     let mlExplodedGroup = null; // DOM element for multilayer exploded group
     let pdfExplodedGroup = null;
+    let isPdfExploded = false;
+    const pdfExplodeBtn = document.getElementById('pdfExplode');
     let selectedExplodedFrame = null; // currently selected individual frame in a group
 
     function createExplodedGroup(items, groupLabel, top, left, groupType) {
@@ -5424,14 +5523,12 @@ Try rephrasing your question or search for a tool in the command bar.`;
     });
 
     // PDF Explode
-    const pdfExplodeBtn = document.getElementById('pdfExplode');
-    let isPdfExploded = false;
-
     pdfExplodeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       isPdfExploded = !isPdfExploded;
       if (isPdfExploded) {
         pdfFrame.style.display = 'none';
+        pageNav.style.display = 'none';
         const items = [{label:'Page 1', floorId:0},{label:'Page 2', floorId:1},{label:'Page 3', floorId:2}];
         pdfExplodedGroup = createExplodedGroup(items, 'Section A-A — Exploded', 620, 280, 'pdf');
         pdfExplodeBtn.innerHTML = COLLAPSE_ICON; pdfExplodeBtn.title = 'Collapse';
@@ -5440,6 +5537,7 @@ Try rephrasing your question or search for a tool in the command bar.`;
         removeExplodedGroup(pdfExplodedGroup);
         pdfExplodedGroup = null;
         pdfFrame.style.display = '';
+        pageNav.style.display = '';
         pdfExplodeBtn.innerHTML = EXPLODE_ICON; pdfExplodeBtn.title = 'Explode';
         selectPdfFrame();
       }
@@ -5771,74 +5869,173 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const visibleFloors = FLOORS.slice().sort((a, b) => b.id - a.id).slice(0, 8);
 
       if (type === 'section') {
-        const slabH = 200 / visibleFloors.length;
-        visibleFloors.forEach((floor, i) => {
-          const y = i * slabH;
-          const slab = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          slab.setAttribute('x1', '0'); slab.setAttribute('y1', y);
-          slab.setAttribute('x2', '196'); slab.setAttribute('y2', y);
-          slab.setAttribute('stroke', 'rgba(255,255,255,0.2)'); slab.setAttribute('stroke-width', '2');
+        const wallL = 30, wallR = 166, buildingTop = 10, buildingBot = 210;
+        const floorCount = Math.min(visibleFloors.length, 6);
+        const slabH = (buildingBot - buildingTop) / floorCount;
+
+        // Ground hatch
+        const gnd = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        gnd.setAttribute('x', '0'); gnd.setAttribute('y', buildingBot);
+        gnd.setAttribute('width', '196'); gnd.setAttribute('height', '26');
+        gnd.setAttribute('fill', '#e8e8e5');
+        svg.appendChild(gnd);
+        for (let hx = 0; hx < 196; hx += 8) {
+          const hl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          hl.setAttribute('x1', hx); hl.setAttribute('y1', buildingBot);
+          hl.setAttribute('x2', hx + 12); hl.setAttribute('y2', buildingBot + 26);
+          hl.setAttribute('stroke', '#ccc'); hl.setAttribute('stroke-width', '0.5');
+          svg.appendChild(hl);
+        }
+
+        // Floor slabs + windows
+        visibleFloors.slice(0, floorCount).forEach((floor, i) => {
+          const y = buildingTop + i * slabH;
+          const slab = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          slab.setAttribute('x', wallL - 4); slab.setAttribute('y', y);
+          slab.setAttribute('width', wallR - wallL + 8); slab.setAttribute('height', '4');
+          slab.setAttribute('fill', '#ccc');
           svg.appendChild(slab);
+
+          const winY = y + slabH * 0.25, winH = slabH * 0.4;
+          const winL = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          winL.setAttribute('x', wallL + 2); winL.setAttribute('y', winY);
+          winL.setAttribute('width', '8'); winL.setAttribute('height', winH);
+          winL.setAttribute('fill', '#b8d4e8'); winL.setAttribute('rx', '1');
+          svg.appendChild(winL);
+          const winR = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          winR.setAttribute('x', wallR - 10); winR.setAttribute('y', winY);
+          winR.setAttribute('width', '8'); winR.setAttribute('height', winH);
+          winR.setAttribute('fill', '#b8d4e8'); winR.setAttribute('rx', '1');
+          svg.appendChild(winR);
+
           const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          txt.setAttribute('x', '4'); txt.setAttribute('y', y + slabH / 2 + 4);
-          txt.setAttribute('fill', 'rgba(255,255,255,0.15)');
-          txt.setAttribute('font-size', '9'); txt.setAttribute('font-family', 'Inter');
-          txt.textContent = floor.label;
-          svg.appendChild(txt);
-          const ht = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          ht.setAttribute('x', '160'); ht.setAttribute('y', y + slabH / 2 + 4);
-          ht.setAttribute('fill', 'rgba(255,255,255,0.1)');
-          ht.setAttribute('font-size', '8'); ht.setAttribute('font-family', 'Inter');
-          ht.textContent = (FLOOR_HEIGHTS[floor.id] || '2.80') + 'm';
-          svg.appendChild(ht);
-        });
-        const bottom = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        bottom.setAttribute('x1', '0'); bottom.setAttribute('y1', '200');
-        bottom.setAttribute('x2', '196'); bottom.setAttribute('y2', '200');
-        bottom.setAttribute('stroke', 'rgba(255,255,255,0.2)'); bottom.setAttribute('stroke-width', '2');
-        svg.appendChild(bottom);
-        ['0', '196'].forEach(x => {
-          const wall = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          wall.setAttribute('x1', x); wall.setAttribute('y1', '0');
-          wall.setAttribute('x2', x); wall.setAttribute('y2', '200');
-          wall.setAttribute('stroke', 'rgba(255,255,255,0.15)'); wall.setAttribute('stroke-width', '2');
-          svg.appendChild(wall);
-        });
-      } else {
-        const facadeH = 180, facadeW = 180, oX = 8, oY = 30;
-        const roof = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        roof.setAttribute('points', `${oX},${oY} ${oX + facadeW / 2},${oY - 25} ${oX + facadeW},${oY}`);
-        roof.setAttribute('stroke', 'rgba(255,255,255,0.15)'); roof.setAttribute('fill', 'rgba(255,255,255,0.02)');
-        roof.setAttribute('stroke-width', '1.5');
-        svg.appendChild(roof);
-        const facade = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        facade.setAttribute('x', oX); facade.setAttribute('y', oY);
-        facade.setAttribute('width', facadeW); facade.setAttribute('height', facadeH);
-        facade.setAttribute('stroke', 'rgba(255,255,255,0.2)'); facade.setAttribute('fill', 'none');
-        facade.setAttribute('stroke-width', '2');
-        svg.appendChild(facade);
-        const slabH = facadeH / Math.min(visibleFloors.length, 6);
-        visibleFloors.slice(0, 6).forEach((floor, i) => {
-          const y = oY + i * slabH;
-          if (i > 0) {
-            const fl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            fl.setAttribute('x1', oX); fl.setAttribute('y1', y);
-            fl.setAttribute('x2', oX + facadeW); fl.setAttribute('y2', y);
-            fl.setAttribute('stroke', 'rgba(255,255,255,0.1)'); fl.setAttribute('stroke-width', '1');
-            svg.appendChild(fl);
-          }
-          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          txt.setAttribute('x', oX + 4); txt.setAttribute('y', y + slabH / 2 + 3);
-          txt.setAttribute('fill', 'rgba(255,255,255,0.12)');
+          txt.setAttribute('x', wallR + 12); txt.setAttribute('y', y + slabH / 2 + 3);
+          txt.setAttribute('fill', '#bbb');
           txt.setAttribute('font-size', '8'); txt.setAttribute('font-family', 'Inter');
           txt.textContent = floor.label;
           svg.appendChild(txt);
+          const ht = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          ht.setAttribute('x', '2'); ht.setAttribute('y', y + slabH / 2 + 3);
+          ht.setAttribute('fill', '#bbb');
+          ht.setAttribute('font-size', '7'); ht.setAttribute('font-family', 'Inter');
+          ht.textContent = (FLOOR_HEIGHTS[floor.id] || '2.80') + 'm';
+          svg.appendChild(ht);
         });
-        const ground = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        ground.setAttribute('x1', '0'); ground.setAttribute('y1', oY + facadeH);
-        ground.setAttribute('x2', '196'); ground.setAttribute('y2', oY + facadeH);
-        ground.setAttribute('stroke', 'rgba(255,255,255,0.25)'); ground.setAttribute('stroke-width', '2');
-        svg.appendChild(ground);
+
+        // Bottom slab
+        const botSlab = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        botSlab.setAttribute('x', wallL - 4); botSlab.setAttribute('y', buildingBot - 2);
+        botSlab.setAttribute('width', wallR - wallL + 8); botSlab.setAttribute('height', '4');
+        botSlab.setAttribute('fill', '#ccc');
+        svg.appendChild(botSlab);
+
+        // Side walls
+        [wallL - 4, wallR].forEach(x => {
+          const w = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          w.setAttribute('x', x); w.setAttribute('y', buildingTop);
+          w.setAttribute('width', '4'); w.setAttribute('height', buildingBot - buildingTop);
+          w.setAttribute('fill', '#2a2a2a');
+          svg.appendChild(w);
+        });
+
+        // Interior partition
+        const midX = (wallL + wallR) / 2;
+        for (let i = 0; i < floorCount; i++) {
+          const y = buildingTop + i * slabH + 4;
+          const part = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          part.setAttribute('x1', midX); part.setAttribute('y1', y);
+          part.setAttribute('x2', midX); part.setAttribute('y2', y + slabH - 4);
+          part.setAttribute('stroke', '#ddd'); part.setAttribute('stroke-width', '1');
+          part.setAttribute('stroke-dasharray', '3,2');
+          svg.appendChild(part);
+        }
+
+      } else {
+        const facadeW = 140, facadeH = 170, oX = 28, oY = 30;
+        const floorCount = Math.min(visibleFloors.length, 6);
+        const slabH = facadeH / floorCount;
+        const groundY = oY + facadeH;
+
+        // Ground line + hatch
+        const gndLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        gndLine.setAttribute('x1', '0'); gndLine.setAttribute('y1', groundY);
+        gndLine.setAttribute('x2', '196'); gndLine.setAttribute('y2', groundY);
+        gndLine.setAttribute('stroke', '#2a2a2a'); gndLine.setAttribute('stroke-width', '2');
+        svg.appendChild(gndLine);
+        for (let hx = 0; hx < 196; hx += 6) {
+          const hl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          hl.setAttribute('x1', hx); hl.setAttribute('y1', groundY + 2);
+          hl.setAttribute('x2', hx + 8); hl.setAttribute('y2', groundY + 14);
+          hl.setAttribute('stroke', '#ccc'); hl.setAttribute('stroke-width', '0.5');
+          svg.appendChild(hl);
+        }
+
+        // Roof
+        const roofPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        roofPoly.setAttribute('points', `${oX},${oY} ${oX + facadeW / 2},${oY - 20} ${oX + facadeW},${oY}`);
+        roofPoly.setAttribute('stroke', '#2a2a2a'); roofPoly.setAttribute('fill', '#e8e8e5');
+        roofPoly.setAttribute('stroke-width', '1.5');
+        svg.appendChild(roofPoly);
+
+        // Building outline
+        const facade = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        facade.setAttribute('x', oX); facade.setAttribute('y', oY);
+        facade.setAttribute('width', facadeW); facade.setAttribute('height', facadeH);
+        facade.setAttribute('stroke', '#2a2a2a'); facade.setAttribute('fill', 'none');
+        facade.setAttribute('stroke-width', '2');
+        svg.appendChild(facade);
+
+        // Window grid per floor
+        const winCols = 4, winW = 16, winH = slabH * 0.4;
+        const winGap = (facadeW - winCols * winW) / (winCols + 1);
+        visibleFloors.slice(0, floorCount).forEach((floor, i) => {
+          const floorY = oY + i * slabH;
+          if (i > 0) {
+            const fl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            fl.setAttribute('x1', oX); fl.setAttribute('y1', floorY);
+            fl.setAttribute('x2', oX + facadeW); fl.setAttribute('y2', floorY);
+            fl.setAttribute('stroke', '#ddd'); fl.setAttribute('stroke-width', '0.5');
+            svg.appendChild(fl);
+          }
+          const winY = floorY + slabH * 0.3;
+          for (let c = 0; c < winCols; c++) {
+            const winX = oX + winGap + c * (winW + winGap);
+            const win = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            win.setAttribute('x', winX); win.setAttribute('y', winY);
+            win.setAttribute('width', winW); win.setAttribute('height', winH);
+            win.setAttribute('fill', '#b8d4e8'); win.setAttribute('stroke', '#999');
+            win.setAttribute('stroke-width', '0.5'); win.setAttribute('rx', '1');
+            svg.appendChild(win);
+            const cx = winX + winW / 2, cy = winY + winH / 2;
+            const vl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            vl.setAttribute('x1', cx); vl.setAttribute('y1', winY);
+            vl.setAttribute('x2', cx); vl.setAttribute('y2', winY + winH);
+            vl.setAttribute('stroke', '#999'); vl.setAttribute('stroke-width', '0.3');
+            svg.appendChild(vl);
+            const hl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            hl.setAttribute('x1', winX); hl.setAttribute('y1', cy);
+            hl.setAttribute('x2', winX + winW); hl.setAttribute('y2', cy);
+            hl.setAttribute('stroke', '#999'); hl.setAttribute('stroke-width', '0.3');
+            svg.appendChild(hl);
+          }
+          const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.setAttribute('x', '4'); txt.setAttribute('y', floorY + slabH / 2 + 3);
+          txt.setAttribute('fill', '#bbb');
+          txt.setAttribute('font-size', '7'); txt.setAttribute('font-family', 'Inter');
+          txt.textContent = floor.label;
+          svg.appendChild(txt);
+        });
+
+        // Door on ground floor
+        const doorW = 18, doorH = slabH * 0.65;
+        const doorX = oX + facadeW / 2 - doorW / 2;
+        const doorY = groundY - doorH;
+        const door = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        door.setAttribute('x', doorX); door.setAttribute('y', doorY);
+        door.setAttribute('width', doorW); door.setAttribute('height', doorH);
+        door.setAttribute('fill', '#d4c9a8'); door.setAttribute('stroke', '#999');
+        door.setAttribute('stroke-width', '0.5'); door.setAttribute('rx', '1');
+        svg.appendChild(door);
       }
 
       frame.appendChild(svg);
@@ -6330,9 +6527,11 @@ Try rephrasing your question or search for a tool in the command bar.`;
       const pn = document.getElementById('pageNav');
       if (zoom < 0.5) {
         floorNav.style.visibility = 'hidden';
+        floorNavGhost.style.visibility = 'hidden';
         if (pn) pn.style.visibility = 'hidden';
       } else {
         floorNav.style.visibility = '';
+        floorNavGhost.style.visibility = '';
         if (pn) pn.style.visibility = '';
       }
 
